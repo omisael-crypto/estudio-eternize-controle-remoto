@@ -2,7 +2,7 @@
 // @name         Estúdio Eternize
 // @namespace    eternize.estudio
 // @icon         https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/icone.png
-// @version      0.12.1
+// @version      0.12.2
 // @description  Mostra as fotos que o cliente enviou no chat da Leona, separa por pessoa e manda para o Estúdio Eternize.
 // @updateURL    https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-eternize.user.js
 // @downloadURL  https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-eternize.user.js
@@ -146,8 +146,8 @@ const chrome = (() => {
     const r = new REC(); b._rec = r; micAtivo = r; r.lang = 'pt-BR'; r.interimResults = false; r.continuous = true;
     r.onresult = ev => { let t = ''; for (let i = ev.resultIndex; i < ev.results.length; i++) if (ev.results[i].isFinal) t += ev.results[i][0].transcript;
       if (t) { campo.value = (campo.value ? campo.value.replace(/\s*$/, ' ') : '') + t.trim(); campo.dispatchEvent(new Event('input', { bubbles: true })); } };
-    r.onstart = () => { b.style.background = '#4c8dff'; b.style.color = '#fff'; };
-    r.onend = () => { if (micAtivo === r) micAtivo = null; b._rec = null; b.style.background = ''; b.style.color = ''; };
+    r.onstart = () => { b.classList.add('on'); b.setAttribute('aria-label', 'Parar'); b.title = 'Ouvindo… clique para parar'; };
+    r.onend = () => { if (micAtivo === r) micAtivo = null; b._rec = null; b.classList.remove('on'); b.setAttribute('aria-label', 'Falar'); b.title = 'Falar em vez de escrever'; };
     r.onerror = ev => { if (ev && ev.error === 'not-allowed') { msg = '!O Chrome bloqueou o microfone neste site. Clique no cadeado ao lado do endereço e permita o microfone.'; } r.onend(); };
     try { r.start(); } catch (x) { r.onend(); }
   }
@@ -291,7 +291,6 @@ const chrome = (() => {
     .troca:hover:not([disabled]){border-color:#4c8dff;color:#fff}
     .troca:focus-visible{outline:2px solid #4c8dff;outline-offset:2px}
     .passo .troca{margin-left:auto}
-    #ajmic{width:42px;height:auto;font-size:16px;padding:0}
     .seg{display:flex;border:1px solid #2a2c35;border-radius:10px;overflow:hidden;margin-bottom:18px}
     .seg button{flex:1;border:0;border-right:1px solid #2a2c35;background:#191a20;color:#c9cdda;padding:9px 4px;cursor:pointer;font-size:13px}
     .seg button:last-child{border-right:0}
@@ -329,7 +328,12 @@ const chrome = (() => {
     .maisop{background:none;border:0;color:#9aa0b2;cursor:pointer;padding:6px 0;font-size:13px}
     .maisop .cnt{background:#4c8dff;color:#fff;border-radius:9px;padding:1px 7px;font-size:11px;margin-left:4px}
     .aj label{display:block;font-size:12px;color:#8b90a0;margin:6px 0 4px}
-    .aj input{width:100%;padding:9px;border-radius:8px;border:1px solid #2a2c35;background:#16171c;color:#fff}
+    .aj input{width:100%;height:36px;box-sizing:border-box;padding:0 14px;border-radius:18px;border:1px solid #2a2c35;background:#16171c;color:#fff;outline:none}
+    .aj input:focus{border-color:#4c8dff}
+    .micb{flex:none;width:36px;height:36px;padding:0;border-radius:50%;border:1px solid #2a2c35;background:#1d1d22;color:#8e8e9a;cursor:pointer;display:grid;place-items:center}
+    .micb:hover{color:#fff;border-color:#4c8dff}
+    .micb.on{background:#f2686a;border-color:#f2686a;color:#fff;animation:pulsa 1.2s ease-in-out infinite}
+    @keyframes pulsa{50%{box-shadow:0 0 0 5px rgba(242,104,106,.25)}}
     .aviso{color:#fcd34d;font-size:13px;margin:6px 0}.aviso.bad{color:#fca5a5}
     .dicac{font-size:13px;color:#9aa0b2;margin:4px 0 12px}.dicac b{color:#e6e8ee}
     .go{width:100%;border:0;border-radius:10px;padding:13px;font-size:15px;font-weight:700;background:#4c8dff;color:#fff;cursor:pointer;margin-bottom:8px}
@@ -713,7 +717,7 @@ const chrome = (() => {
         <div class="grade ${n === 1 || emJuntos() ? 'um' : ''}">${cartoes}</div>
         ${prob ? `<div class="aviso">${esc(prob)}</div>` : ''}
         <button class="maisop" id="mais">${rotuloMais()}</button>
-        ${mais ? `<div class="aj"><label for="aj">Quer mudar algo?</label><div style="display:flex;gap:6px"><input id="aj" maxlength="500" placeholder="Ex.: tirar o copo da mão" value="${esc(ajuste)}" style="flex:1">${REC ? '<button class="troca" id="ajmic" title="Falar em vez de escrever" aria-label="Falar" style="margin:0">🎤</button>' : ''}</div></div>` : ''}
+        ${mais ? `<div class="aj"><label for="aj">Quer mudar algo?</label><div style="display:flex;gap:8px;align-items:center"><input id="aj" maxlength="500" placeholder="Ex.: tirar o copo da mão" value="${esc(ajuste)}" style="flex:1">${REC ? '<button class="micb" id="ajmic" type="button" title="Falar em vez de escrever" aria-label="Falar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>' : ''}</div></div>` : ''}
         <div class="passo" style="margin-top:14px"><b>3</b><span>Gerar</span></div>
         <div class="dicac">${dica()}</div>
         <label class="chv" title="Ligada: aparecem os botões 'e enviar' (quando o arquivo fica pronto, vai sozinho para o cliente, com este chat aberto). Desligada: você envia à mão."><input type="checkbox" id="chaveauto" ${autoEnvio ? 'checked' : ''}><i></i><span>Envio automático ao cliente</span></label>
