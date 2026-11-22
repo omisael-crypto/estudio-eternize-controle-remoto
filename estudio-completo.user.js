@@ -2,7 +2,7 @@
 // @name         Estúdio Eternize (completo)
 // @namespace    eternize.estudio.completo
 // @icon         https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/icone.png
-// @version      0.17.4
+// @version      0.17.5
 // @description  Mostra as fotos que o cliente enviou no chat da Leona, separa por pessoa e manda para o Estúdio Eternize.
 // @updateURL    https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
 // @downloadURL  https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
@@ -22,10 +22,10 @@
 // @connect      raw.githubusercontent.com
 // ==/UserScript==
 
-// Estúdio Eternize — controle remoto, versão 0.17.4 (gerado por leona/gerar.py)
+// Estúdio Eternize — controle remoto, versão 0.17.5 (gerado por leona/gerar.py)
 (function () {
 'use strict';
-const VERSAO_SCRIPT = '0.17.4';
+const VERSAO_SCRIPT = '0.17.5';
 // Faz o código da extensão (content.js) rodar no Tampermonkey: cria um "chrome" de mentira com as mesmas funções
 // (guardar dados, falar com o Estúdio deste computador). O código do menu é o MESMO da extensão.
 const chrome = (() => {
@@ -114,6 +114,7 @@ const chrome = (() => {
         const mime = by[0] === 0xff ? 'image/jpeg' : by[0] === 0x89 ? 'image/png' : by[0] === 0x52 ? 'image/webp' : (cab(r, 'content-type') || 'image/jpeg');
         return { ok: true, mime, b64: b64(r.response) };
       }
+      if (msg.tipo === 'repetir') { const r = await estudio('/api/leona/repetir', { method: 'POST', body: JSON.stringify({ id: msg.id, cancelar: !!msg.cancelar }) }); return { ok: r.status === 200, erro: (r.json && r.json.erro) || '' }; }
       if (msg.tipo === 'entregue') { const r = await estudio('/api/leona/entregue', { method: 'POST', body: JSON.stringify({ id: msg.id, tipo: msg.arquivo }) }); return { ok: r.status === 200 }; }
       return { ok: false, erro: 'Mensagem desconhecida.' };
     } catch (e) { return { ok: false, erro: String((e && e.message) || e) }; }
@@ -296,13 +297,16 @@ const chrome = (() => {
     .edit-top h4{margin:0 10px 0 0;font-size:15px}
     .tb{border:1px solid #2a2c35;background:#16171c;color:#c9cdda;border-radius:8px;padding:7px 12px;cursor:pointer;font-size:13px}
     .tb:hover{border-color:#4c8dff}.tb.on{background:#4c8dff;color:#fff;border-color:#4c8dff}.tb:disabled{opacity:.5;cursor:wait}
-    .edit-corpo{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:18px;overflow:auto}
+    .edit-meio{flex:1;min-height:0;display:flex}
+    .edit-corpo{flex:1;min-height:0;min-width:0;display:flex;align-items:center;justify-content:center;padding:12px;overflow:auto}
     .stage{position:relative;line-height:0;user-select:none;touch-action:none}
     .stage canvas{display:block;border-radius:6px}
     .crop{position:absolute;border:2px dashed #4c8dff;cursor:pointer;box-sizing:border-box;touch-action:none;background:rgba(255,255,255,.04)}
     .crop.ativo{border-style:solid;box-shadow:0 0 0 9999px rgba(0,0,0,.62);cursor:move;background:transparent}
     .crop .rot{position:absolute;left:0;top:0;color:#fff;font-size:12px;font-weight:700;padding:2px 8px;border-radius:0 0 8px 0;line-height:1.3}
-    .edit-pes{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 18px;background:#14151a;border-bottom:1px solid #2a2c35;font-size:13px;color:#9aa0b2}
+    /* fotos do cliente: coluna à esquerda, com rolagem (2 miniaturas por linha), para o recorte ficar com o resto da tela */
+    .edit-pes{flex:none;width:156px;display:grid;grid-template-columns:repeat(2,60px);grid-auto-rows:auto;gap:8px;align-content:start;justify-content:center;padding:10px 8px;overflow-y:auto;background:#14151a;border-right:1px solid #2a2c35;font-size:12px;color:#9aa0b2;scrollbar-width:thin;scrollbar-color:#3a3d4a transparent}
+    .edit-pes>span{grid-column:1/-1;grid-row:auto;line-height:1.3;padding:0 2px 2px}
     .foto .uso{position:absolute;left:4px;bottom:4px;background:#4c8dff;color:#fff;font-size:11px;font-weight:700;padding:1px 6px;border-radius:6px}
     .crop i{position:absolute;width:16px;height:16px;background:#4c8dff;border:2px solid #fff;border-radius:50%;box-sizing:border-box;touch-action:none}
     .crop i[data-h=nw]{left:-9px;top:-9px;cursor:nwse-resize}.crop i[data-h=n]{left:calc(50% - 8px);top:-9px;cursor:ns-resize}
@@ -775,19 +779,22 @@ const chrome = (() => {
 
   function desenharEditor() {
     if (!ed) return;
+    const rolagem = ($('#edit').querySelector('.edit-pes') || {}).scrollTop || 0;   // a coluna de fotos não volta ao topo a cada clique
     const miniaturas = fotosSel.map(f => `<button class="pick ${f.id === ed.fotoId ? 'at' : ''}" data-pick="${f.id}" title="Usar esta foto"><img src="${esc(f.src)}"></button>`).join('');
     $('#edit').innerHTML = `
       <div class="edit-top"><h4>Recortar a pessoa ${ed.i + 1}</h4>
         <button class="tb" data-ed="esq">${IC.girarEsq} Girar à esquerda</button><button class="tb" data-ed="dir">${IC.girarDir} Girar à direita</button>
         <button class="tb ${ed.flip ? 'on' : ''}" data-ed="flip">${IC.espelho} Espelhar</button>
         <button class="tb" data-ed="zero" style="margin-left:auto">Desfazer giro</button></div>
-      <div class="edit-pes"><span>Foto do cliente:</span>${miniaturas}</div>
-      <div class="edit-corpo" id="editcorpo">${ed.carregando ? '<div class="ocupado">Abrindo a foto…</div>' : ed.erro ? `<div class="aviso bad">${esc(ed.erro)}</div>` : '<div class="stage" id="stage"><canvas id="ec"></canvas></div>'}</div>
+      <div class="edit-meio"><div class="edit-pes"><span>Fotos do cliente (${fotosSel.length})</span>${miniaturas}</div>
+      <div class="edit-corpo" id="editcorpo">${ed.carregando ? '<div class="ocupado">Abrindo a foto…</div>' : ed.erro ? `<div class="aviso bad">${esc(ed.erro)}</div>` : '<div class="stage" id="stage"><canvas id="ec"></canvas></div>'}</div></div>
       <div class="edit-rod"><span class="res">Gire se precisar, depois arraste a moldura sobre a pessoa e ajuste pelas bolinhas.</span>
         <div style="display:flex;gap:8px"><button class="tb" data-ed="cancelar">Cancelar</button><button class="tb on" data-ed="usar" ${ed.img ? '' : 'disabled'} style="padding:9px 18px;font-weight:700">Usar como P${ed.i + 1}</button></div></div>`;
+    const pes = $('#edit').querySelector('.edit-pes');
+    if (pes) { pes.scrollTop = rolagem; if (!rolagem) { const at = pes.querySelector('.pick.at'); if (at) at.scrollIntoView({ block: 'nearest' }); } }
     if (ed.img && !ed.carregando) {
       const area = $('#editcorpo'), base0 = renderBase(ed.img, ed, 1600);
-      const k = Math.min((area.clientWidth - 36) / base0.width, (area.clientHeight - 36) / base0.height, 1);
+      const k = Math.min((area.clientWidth - 24) / base0.width, (area.clientHeight - 24) / base0.height, 4);   // ocupa toda a área livre (até 4x, para foto pequena também ficar grande)
       const ec = $('#ec'); ec.width = Math.max(1, Math.round(base0.width * k)); ec.height = Math.max(1, Math.round(base0.height * k));
       ec.getContext('2d').drawImage(base0, 0, 0, ec.width, ec.height);
       $('#stage').insertAdjacentHTML('beforeend', `<div class="crop ativo" id="crop"><b class="rot">P${ed.i + 1}</b>${['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'].map(h => `<i data-h="${h}"></i>`).join('')}</div>`);
@@ -893,12 +900,10 @@ const chrome = (() => {
         ${mais ? `<div class="aj"><label for="aj">Quer mudar algo?</label><div style="display:flex;gap:8px;align-items:center"><input id="aj" maxlength="500" placeholder="Ex.: tirar o copo da mão" value="${esc(ajuste)}" style="flex:1">${REC ? '<button class="micb" id="ajmic" type="button" title="Falar em vez de escrever" aria-label="Falar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>' : ''}</div><div id="micmsg" class="aviso" style="display:none"></div></div>` : ''}
         <div class="passo" style="margin-top:14px"><b>3</b><span>Gerar</span></div>
         <div class="dicac">${dica()}</div>
-        <label class="chv" title="Ligada: aparecem os botões 'e enviar' (quando o arquivo fica pronto, vai sozinho para o cliente, mesmo que você já esteja em outro chat). Desligada: você envia à mão."><input type="checkbox" id="chaveauto" ${autoEnvio ? 'checked' : ''}><i></i><span>Envio automático ao cliente</span></label>
-        <div class="bgrid ${autoEnvio ? 'dois' : ''}">
-          <button class="go" id="gdireto" ${ok ? '' : 'disabled'}>Gerar homenagem</button>
-          ${autoEnvio ? `<button class="go" id="gdiretoenv" ${ok ? '' : 'disabled'}>Gerar homenagem e enviar</button>` : ''}
-          <button class="go sec" id="gprevia" ${ok ? '' : 'disabled'}>Gerar só a prévia</button>
-          ${autoEnvio ? `<button class="go sec" id="gpreviaenv" ${ok ? '' : 'disabled'}>Gerar só a prévia e enviar</button>` : ''}
+        <label class="chv" title="Ligada: só aparecem os botões 'e enviar' (quando o arquivo fica pronto, vai sozinho para o cliente, mesmo que você já esteja em outro chat). Desligada: só aparecem os botões comuns e você envia à mão."><input type="checkbox" id="chaveauto" ${autoEnvio ? 'checked' : ''}><i></i><span>Envio automático ao cliente</span></label>
+        <div class="bgrid">
+          <button class="go" id="gdireto" ${ok ? '' : 'disabled'}>${autoEnvio ? 'Gerar homenagem e enviar' : 'Gerar homenagem'}</button>
+          <button class="go sec" id="gprevia" ${ok ? '' : 'disabled'}>${autoEnvio ? 'Gerar só a prévia e enviar' : 'Gerar só a prévia'}</button>
         </div>
         <div class="msg ${msg.startsWith('!') ? 'bad' : ''}" id="msg">${esc(msg.replace(/^!/, ''))}</div>
       </div>`;
@@ -938,10 +943,9 @@ const chrome = (() => {
     $('#mais').onclick = () => { mais = !mais; desenhar(); };
     const mic = $('#ajmic'); if (mic) mic.onclick = () => falar(mic, $('#aj'));
     const aj = $('#aj'); if (aj) aj.oninput = () => { ajuste = aj.value; $('#mais').innerHTML = rotuloMais(); };
-    $('#gdireto').onclick = () => enviar(true, false);
-    $('#gprevia').onclick = () => enviar(false, false);
-    const ge = $('#gdiretoenv'); if (ge) ge.onclick = () => enviar(true, true);
-    const gp = $('#gpreviaenv'); if (gp) gp.onclick = () => enviar(false, true);
+    // chave ligada: só os botões "... e enviar" (o arquivo vai sozinho ao cliente); desligada: só os botões comuns (você envia à mão)
+    $('#gdireto').onclick = () => enviar(true, autoEnvio);
+    $('#gprevia').onclick = () => enviar(false, autoEnvio);
     $('#chaveauto').onchange = e => { autoEnvio = e.target.checked; try { chrome.storage.local.set({ autoEnvio }); } catch (x) {} desenhar(); };
   }
 
@@ -1297,7 +1301,7 @@ const chrome = (() => {
       const direto = d.direto !== false, ent = d.entregas || {};
       const pronta = !!(d.previa && (d.previa.estado === 'pronto' || d.previa.estado === 'pronta'));
       const videoPronto = !!(direto && d.video && d.video.estado === 'pronto');
-      const erro = d.erro || (d.previa && d.previa.erro) || (d.video && d.video.erro) || '';
+      const erro = d.estado === 'duplicado' && !d.previa ? '' : (d.erro || (d.previa && d.previa.erro) || (d.video && d.video.erro) || '');   // "duplicado" não é erro: é uma pergunta com botões, e a consulta continua
       if (pronta) buscar('previa');
       if (videoPronto) buscar('video');
       for (let k = 0; k < (d.fotos || 0); k++) buscar('original', k);
@@ -1322,16 +1326,29 @@ const chrome = (() => {
           $('#jqs').innerHTML = `<div class="jqs">${['1f2v', '1v2f', '2f'].map(q => `<button data-jq="${q}" class="${q === jqRef ? 'on' : ''}">${NOMEJQ[q]}</button>`).join('')}</div>`;
           $('#jqs').querySelectorAll('[data-jq]').forEach(b => b.onclick = () => { jqRef = b.dataset.jq; $('#jqs').querySelectorAll('[data-jq]').forEach(x => x.classList.toggle('on', x === b)); }); }
         // 2 · prévia
-        const pe = !d.previa ? 'agora' : pronta ? 'ok' : d.previa.estado === 'erro' ? 'erro' : 'agora';
-        const pp = pe === 'ok' ? 'Pronto' : pe === 'erro' ? 'Erro' : (d.previa && d.previa.estado === 'fila') ? 'Na fila' : 'Gerando';
+        const erroPed = !d.previa && d.estado === 'erro';   // o pedido nem chegou a virar prévia (foto não baixou, texto vazio, pedido repetido...): mostra o motivo em vez de girar para sempre
+        const demora = !d.previa && d.inicio && (Date.now() / 1000 - d.inicio) > 45;
+        const msgEspera = d.previa ? 'Gerando a prévia…'
+          : ({ baixando: 'Baixando as fotos do chat…', novo: 'Esperando o aplicativo do Estúdio pegar o pedido…', enviado: 'Pedindo a prévia ao gerador…' })[d.estado] || 'Enviando as fotos ao Estúdio…';
+        const dupPed = !d.previa && d.estado === 'duplicado';   // mesmas fotos pedidas há menos de 2 min: a pergunta "Pedir de novo?" aparece aqui, com botões
+        const pe = !d.previa ? (erroPed ? 'erro' : 'agora') : pronta ? 'ok' : d.previa.estado === 'erro' ? 'erro' : 'agora';
+        const pp = pe === 'ok' ? 'Pronto' : pe === 'erro' ? 'Erro' : (d.previa && d.previa.estado === 'fila') ? 'Na fila' : d.previa ? 'Gerando' : 'Enviando';
         $('#p-pill').innerHTML = `<span class="pill ${pe}">${pp}</span>`;
         const cp = $('#c-previa'), up = previas[id].previa;
-        const sigP = pronta ? 'img|' + up : pe + '|' + (d.previa ? d.previa.estado : 'x') + '|' + (pe === 'agora' ? cron('previa', d.previa ? d.previa.inicio : d.inicio) : '');
+        const sigP = pronta ? 'img|' + up : pe + '|' + (d.previa ? d.previa.estado : 'x' + (d.estado || '') + (demora ? 'd' : '') + (erroPed ? d.erro : '')) + '|' + (pe === 'agora' && !dupPed ? cron('previa', d.previa ? d.previa.inicio : d.inicio) : '');
         if (cp.dataset.sig !== sigP) { cp.dataset.sig = sigP;
           cp.innerHTML = pronta && up ? `<img id="im-previa" src="${up}" alt="Prévia">`
             : pronta ? '<div class="espera">Abrindo a prévia…</div>'
+            : dupPed ? `<div class="espera"><b style="font-size:15px">Esse pedido já foi feito agora há pouco.</b><span>Pedir de novo mesmo assim?</span><div style="display:flex;gap:8px;margin-top:10px;justify-content:center"><button class="tb on" data-rep="sim">Pedir de novo</button><button class="tb" data-rep="nao">Cancelar</button></div></div>`
+            : erroPed ? `<div class="espera erro">${esc(d.erro || 'Não consegui preparar o pedido.')}<br>Use "Gerar homenagem" ao lado para tentar de novo.</div>`
             : pe === 'erro' ? `<div class="espera erro">A prévia deu erro.</div>`
-            : `<div class="espera"><i class="gira"></i><b>${cron('previa', d.previa ? d.previa.inicio : d.inicio)}</b>${d.previa ? 'Gerando a prévia…' : 'Enviando as fotos ao Estúdio…'}</div>`; }
+            : `<div class="espera"><i class="gira"></i><b>${cron('previa', d.previa ? d.previa.inicio : d.inicio)}</b>${msgEspera}${demora && !d.previa ? '<br><small>Está demorando. Confira se o aplicativo do Estúdio está aberto e com a conta entrada.</small>' : ''}</div>`; }
+        cp.querySelectorAll('[data-rep]').forEach(b => b.onclick = async () => {   // "Pedir de novo" / "Cancelar" (o Estúdio avisou que o pedido é repetido)
+          cp.querySelectorAll('[data-rep]').forEach(x => { x.disabled = true; });
+          const r = await chrome.runtime.sendMessage({ tipo: 'repetir', id, cancelar: b.dataset.rep === 'nao' }).catch(() => null);
+          if (!r || !r.ok) cp.querySelectorAll('[data-rep]').forEach(x => { x.disabled = false; });
+          else cp.dataset.sig = '';   // redesenha já com o novo estado
+        });
         $('#e-previa').disabled = !pronta; $('#f-previa').disabled = !(pronta && up); $('#b-previa').disabled = !pronta;
         $('#e-previa').textContent = ent.previa ? 'Enviar a prévia de novo' : 'Enviar prévia ao cliente';
         $('#s-previa').className = 'stt' + (ent.previa ? ' ok' : ''); $('#s-previa').innerHTML = ent.previa ? IC.check + ' enviada ao cliente às ' + esc(hora(ent.previa)) : '';
