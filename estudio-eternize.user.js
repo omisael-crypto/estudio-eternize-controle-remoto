@@ -2,7 +2,7 @@
 // @name         Estúdio Eternize
 // @namespace    eternize.estudio
 // @icon         https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/icone.png
-// @version      0.12.4
+// @version      0.13.0
 // @description  Mostra as fotos que o cliente enviou no chat da Leona, separa por pessoa e manda para o Estúdio Eternize.
 // @updateURL    https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-eternize.user.js
 // @downloadURL  https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-eternize.user.js
@@ -247,18 +247,20 @@ const chrome = (() => {
     }
     return null;
   }
-  async function buscarAntigas(aoAndar) {   // rola o chat até o começo para a Leona carregar as mensagens antigas
+  async function buscarAntigas(aoAndar, aindaVale) {   // rola o chat até o começo (várias vezes, até a Leona não carregar mais nada) e recolhe as fotos
     const sc = rolagemDoChat(); if (!sc) return 0;
     const ch = chatAtual().id, antes = lembrar().lista.length;
     let parados = 0, alt = -1;
-    for (let i = 0; i < 40 && parados < 3; i++) {
-      if (chatAtual().id !== ch) break;
+    for (let i = 0; i < 250 && parados < 5; i++) {
+      if (chatAtual().id !== ch || (aindaVale && !aindaVale())) break;
       sc.scrollTop = 0;
-      await new Promise(r => setTimeout(r, 700));
+      const mais = [...document.querySelectorAll('button')].find(x => !x.closest('#estudio-leona-raiz') && /carregar.*(antigas|anteriores)|ver mais mensagens/i.test(x.textContent || '') && visivel(x));
+      if (mais) mais.click();
+      await esperar(600);
       lembrar(); if (aoAndar) aoAndar(lembrar().lista.length);
-      if (sc.scrollHeight === alt) parados++; else { parados = 0; alt = sc.scrollHeight; }
+      if (sc.scrollHeight === alt && sc.scrollTop <= 2) parados++; else { parados = 0; alt = sc.scrollHeight; }
     }
-    sc.scrollTop = sc.scrollHeight;   // volta para o fim do chat
+    if (chatAtual().id === ch) sc.scrollTop = sc.scrollHeight;   // volta para o fim do chat
     return lembrar().lista.length - antes;
   }
 
@@ -335,6 +337,7 @@ const chrome = (() => {
     .x:hover{color:#fff;background:#1d1d22}
     .gr.ic{display:grid;place-items:center}
     .troca{white-space:nowrap;font-size:12px;font-weight:600;border:1px solid #2a2c35;background:#191a20;border-radius:8px;padding:4px 10px;cursor:pointer;color:#c9cdda;line-height:1.4}
+    .troca.buscando .ico{animation:giro 1s linear infinite}
     .troca:hover:not([disabled]){border-color:#4c8dff;color:#fff}
     .troca:focus-visible{outline:2px solid #4c8dff;outline-offset:2px}
     .passo .troca{margin-left:auto}
@@ -754,7 +757,7 @@ const chrome = (() => {
     }).join('');
 
     $('#corpo').innerHTML = `
-      <div class="esq"><h5>Fotos que o cliente enviou (${fotosSel.length}) — clique para colocar na pessoa marcada <button class="troca" id="antigas" style="margin-left:10px;text-transform:none;letter-spacing:0">${buscando ? 'Buscando…' : IC.atualizar + ' Buscar fotos antigas'}</button></h5>
+      <div class="esq"><h5>Fotos que o cliente enviou (${fotosSel.length}) — clique para colocar na pessoa marcada <button class="troca ${buscando ? 'buscando' : ''}" id="antigas" style="margin-left:10px;text-transform:none;letter-spacing:0">${rotuloBusca()}</button></h5>
         <div class="fotos">${fotosSel.map(f => `<div class="foto" data-f="${f.id}"><img src="${esc(f.src)}">${uso(f.id)}</div>`).join('') || '<div class="vazio">Nenhuma foto achada neste chat.</div>'}</div></div>
       <div class="dir" id="dir">
         <div class="passo"><b>1</b><span>Quantas pessoas?</span>${n === 2 ? `<button class="troca" id="juntos" aria-pressed="${emJuntos()}" title="As duas pessoas aparecem na mesma foto: cole uma foto só e diga quem faleceu" style="${emJuntos() ? 'background:#4c8dff;color:#fff;border-color:#4c8dff' : ''}">${IC.pessoas} Mesma foto</button>` : ''}</div>
@@ -786,12 +789,7 @@ const chrome = (() => {
     c.querySelectorAll('[data-slot]').forEach(e => e.onclick = () => { ativa = +e.dataset.slot; desenhar(); });
     c.querySelectorAll('[data-lim]').forEach(e => e.onclick = ev => { ev.stopPropagation(); const q = pessoas[+e.dataset.lim]; q.foto = null; q.edit = null; q.editada = null; ativa = +e.dataset.lim; desenhar(); });
     c.querySelectorAll('[data-edit]').forEach(e => e.onclick = ev => { ev.stopPropagation(); abrirEditor(+e.dataset.edit); });
-    c.querySelectorAll('[data-f]').forEach(e => e.onclick = () => {   // a foto vai para a pessoa marcada; o marcador pula para a próxima sem foto
-      pessoas[ativa].foto = +e.dataset.f; pessoas[ativa].edit = null; pessoas[ativa].editada = null;   // outra foto: a edição da anterior não vale
-      const prox = pessoas.findIndex(p => !p.foto);
-      if (prox >= 0) ativa = prox;
-      msg = ''; desenhar();
-    });
+    ligarFotos();
     c.querySelectorAll('[data-est] button').forEach(b => b.onclick = () => {
       const i = +b.closest('[data-est]').dataset.est;
       pessoas[i].vivo = b.dataset.v === '1';
@@ -810,13 +808,7 @@ const chrome = (() => {
       if (p[k] && k === 'vestido') p.calca = false;
       desenhar();
     });
-    const ant = $('#antigas'); if (ant) ant.onclick = async () => {
-      if (buscando) return; buscando = true; desenhar();
-      const n0 = fotosSel.length;
-      try { await buscarAntigas(); } catch (e) {}
-      buscando = false; fotosSel = lerFotos();
-      msg = fotosSel.length > n0 ? 'Achei ' + (fotosSel.length - n0) + ' foto(s) a mais.' : 'Não achei fotos mais antigas neste chat.'; desenhar();
-    };
+    const ant = $('#antigas'); if (ant) ant.onclick = () => { if (buscando) return; const ch = chatAtual().id; completo.delete(ch); buscaFundo(ch); };
     const jb = $('#juntos'); if (jb) jb.onclick = () => { juntos = !juntos; ativa = 0; msg = ''; desenhar(); };
     c.querySelectorAll('[data-jq]').forEach(b => b.onclick = () => { jq = b.dataset.jq; desenhar(); });
     const troca = $('#troca'); if (troca) troca.onclick = () => { pessoas.reverse(); ativa = 0; desenhar(); };
@@ -830,6 +822,40 @@ const chrome = (() => {
     $('#chaveauto').onchange = e => { autoEnvio = e.target.checked; try { chrome.storage.local.set({ autoEnvio }); } catch (x) {} desenhar(); };
   }
 
+  function ligarFotos() {
+    $('#corpo').querySelectorAll('[data-f]').forEach(e => e.onclick = () => {   // a foto vai para a pessoa marcada; o marcador pula para a próxima sem foto
+      pessoas[ativa].foto = +e.dataset.f; pessoas[ativa].edit = null; pessoas[ativa].editada = null;   // outra foto: a edição da anterior não vale
+      const prox = pessoas.findIndex(p => !p.foto);
+      if (prox >= 0) ativa = prox;
+      msg = ''; desenhar();
+    });
+  }
+  const usoFoto = id => { const u = pessoas.map((q, j) => q.foto === id ? 'P' + (j + 1) : '').filter(Boolean); return u.length ? `<span class="uso">${u.join(' + ')}</span>` : ''; };
+  function atualizarFotos() {   // põe as fotos novas na lista sem mexer no resto do menu (quem está montando a homenagem não é atrapalhado)
+    const el = $('.fotos'), h = $('.esq h5'); if (!el || !h) return;
+    fotosSel = lerFotos();
+    el.innerHTML = fotosSel.map(f => `<div class="foto" data-f="${f.id}"><img src="${esc(f.src)}">${usoFoto(f.id)}</div>`).join('') || '<div class="vazio">Nenhuma foto achada neste chat.</div>';
+    h.childNodes[0].textContent = 'Fotos que o cliente enviou (' + fotosSel.length + ') — clique para colocar na pessoa marcada ';
+    ligarFotos();
+  }
+  let notaBusca = '';
+  function rotuloBusca() { return buscando ? IC.atualizar + ' Buscando fotos antigas… (' + (fotosSel ? fotosSel.length : 0) + ')' : notaBusca ? IC.check + ' ' + notaBusca : IC.atualizar + ' Buscar fotos antigas'; }
+  function pintarBusca() { const b = $('#antigas'); if (b) { b.innerHTML = rotuloBusca(); b.classList.toggle('buscando', buscando); } }
+  const completo = new Set();   // chats cujas mensagens antigas já foram todas carregadas
+  async function buscaFundo(ch) {   // roda sozinha, com o painel aberto, sem travar nada: só acrescenta as fotos que forem aparecendo
+    if (buscando) return;
+    buscando = true; notaBusca = ''; pintarBusca();
+    try { await buscarAntigas(() => { if (chatAtual().id === ch) { atualizarFotos(); pintarBusca(); } }, () => $('#veu').classList.contains('on')); } catch (e) {}
+    const terminou = $('#veu').classList.contains('on') && chatAtual().id === ch;
+    buscando = false;
+    if (terminou) {
+      completo.add(ch);
+      if (rascunho && $('#gdireto')) { fotosSel = lerFotos(); aplicarRascunho(true); desenhar(); }   // o rascunho esperava as fotos antigas
+      else atualizarFotos();
+      notaBusca = 'Todas as fotos carregadas'; pintarBusca();
+      setTimeout(() => { notaBusca = ''; pintarBusca(); }, 3500);
+    } else pintarBusca();
+  }
   async function enviar(direto, auto) {
     $('#corpo').querySelectorAll('.bgrid .go').forEach(b => { b.disabled = true; });
     $('#msg').className = 'msg'; $('#msg').textContent = 'Enviando ao Estúdio…';
@@ -1213,14 +1239,8 @@ const chrome = (() => {
     }
     rascunho = await lerRascunho(ch); aplicarRascunho(false);
     desenhar();
-    if (!jaBuscou.has(ch)) {   // a primeira vez em cada chat: rola o chat até o começo para a Leona carregar todas as fotos
-      jaBuscou.add(ch); buscando = true; desenhar();
-      try { await buscarAntigas(); } catch (e) {}
-      buscando = false;
-      if ($('#veu').classList.contains('on') && chatAtual().id === ch) { const n0 = fotosSel.length; fotosSel = lerFotos(); aplicarRascunho(true); if (fotosSel.length !== n0) msg = ''; desenhar(); }
-    }
+    if (ch && !completo.has(ch)) buscaFundo(ch);   // segundo plano: continua até acabar as mensagens antigas
   }
-  const jaBuscou = new Set();
   btn.onclick = () => abrir();
   // o ícone da extensão pergunta aqui se o script está vivo nesta aba
   try {
