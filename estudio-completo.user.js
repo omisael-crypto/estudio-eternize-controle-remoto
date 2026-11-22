@@ -2,7 +2,7 @@
 // @name         Estúdio Eternize (completo)
 // @namespace    eternize.estudio.completo
 // @icon         https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/icone.png
-// @version      0.17.0
+// @version      0.17.1
 // @description  Mostra as fotos que o cliente enviou no chat da Leona, separa por pessoa e manda para o Estúdio Eternize.
 // @updateURL    https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
 // @downloadURL  https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
@@ -21,10 +21,10 @@
 // @connect      raw.githubusercontent.com
 // ==/UserScript==
 
-// Estúdio Eternize — controle remoto, versão 0.17.0 (gerado por leona/gerar.py)
+// Estúdio Eternize — controle remoto, versão 0.17.1 (gerado por leona/gerar.py)
 (function () {
 'use strict';
-const VERSAO_SCRIPT = '0.17.0';
+const VERSAO_SCRIPT = '0.17.1';
 // Faz o código da extensão (content.js) rodar no Tampermonkey: cria um "chrome" de mentira com as mesmas funções
 // (guardar dados, falar com o Estúdio deste computador). O código do menu é o MESMO da extensão.
 const chrome = (() => {
@@ -1200,7 +1200,7 @@ const chrome = (() => {
       msgEnvio = 'Buscando ' + nomeTipo + ' no Estúdio…'; mostrarMsg();
       const file = await pegarArquivo(id, tipo);
       if (soBaixar) { baixarArquivo(file); msgEnvio = 'Arquivo baixado.'; return; }
-      if (entregasAtual[tipo] && !window.confirm('Já enviei ' + nomeTipo + ' a este chat às ' + entregasAtual[tipo].slice(-8) + '. Enviar de novo?')) { msgEnvio = 'Cancelado: nada foi enviado.'; return; }
+      if (false) { msgEnvio = 'Cancelado: nada foi enviado.'; return; }
       const como = anexar(file);
       if (!como) { baixarArquivo(file); msgEnvio = '!Não achei onde anexar nesta tela da Leona. Baixei o arquivo: anexe pelo clipe.'; return; }
       if (!autoEnviar && !forcar) {
@@ -1353,7 +1353,7 @@ const chrome = (() => {
         }
         if (!direto) { $('#e-video').disabled = true; $('#f-video').disabled = true; $('#b-video').disabled = true; }
         $('#erro').innerHTML = erro ? `<div class="erro">${esc(erro)}</div>` : '';
-        $('#dicaenv').textContent = (autoDe && !ent[autoDe]) ? 'Envio automático ligado: ' + (autoDe === 'video' ? 'o vídeo' : 'a prévia') + ' vai ao cliente sozinho quando ficar pronto' + (chatAtual().id === chatId ? '.' : ' (abra o chat #' + chatId + ' para enviar).') : (pronta || videoPronto) ? (autoEnviar ? 'Ao clicar em Enviar, o arquivo vai para o chat de origem e a extensão aperta Enviar sozinha.' : 'O arquivo é colocado no chat de origem; você confere e aperta enviar.') : '';
+        $('#dicaenv').textContent = (autoDe && !ent[autoDe]) ? 'Envio automático ligado: ' + (autoDe === 'video' ? 'o vídeo' : 'a prévia') + ' vai ao cliente sozinho quando ficar pronto' + '.' : (pronta || videoPronto) ? (autoEnviar ? 'Ao clicar em Enviar, o arquivo vai direto para o chat de origem, mesmo que você esteja em outro.' : 'O arquivo é colocado no chat de origem; você confere e aperta enviar.') : '';
         mostrarMsg();
       };
       ultimaPintura();
