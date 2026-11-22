@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         Estúdio Eternize -> Leona
+// @name         Estúdio Eternize — Controle remoto
 // @namespace    eternize.estudio
-// @version      0.11.0
-// @description  Botão do Estúdio no chat da Leona: separa as fotos do cliente por pessoa, manda para o Estúdio gerar a prévia e o vídeo e devolve ao mesmo chat.
-// @updateURL    https://raw.githubusercontent.com/omisael-crypto/estudio-leona-script/main/estudio-leona.user.js
-// @downloadURL  https://raw.githubusercontent.com/omisael-crypto/estudio-leona-script/main/estudio-leona.user.js
+// @version      0.11.1
+// @description  Controle remoto do Estúdio Eternize dentro da Leona: separa as fotos do cliente por pessoa, manda para o Estúdio gerar a prévia e o vídeo e devolve ao mesmo chat.
+// @updateURL    https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-eternize.user.js
+// @downloadURL  https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-eternize.user.js
 // @match        https://app.leonasolutions.io/*
 // @run-at       document-idle
 // @grant        GM_xmlhttpRequest
