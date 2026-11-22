@@ -2,7 +2,7 @@
 // @name         Estúdio Eternize
 // @namespace    eternize.estudio
 // @icon         https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/icone.png
-// @version      0.12.0
+// @version      0.12.1
 // @description  Mostra as fotos que o cliente enviou no chat da Leona, separa por pessoa e manda para o Estúdio Eternize.
 // @updateURL    https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-eternize.user.js
 // @downloadURL  https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-eternize.user.js
@@ -287,7 +287,11 @@ const chrome = (() => {
     /* menu (igual ao da Nova homenagem do Estúdio) */
     .passo{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-weight:700}
     .passo b{width:22px;height:22px;border-radius:50%;background:#4c8dff;color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center}
-    .passo .troca{margin-left:auto;white-space:nowrap;font-size:12px;font-weight:600;border:1px solid #2a2c35;background:#191a20;border-radius:8px;padding:4px 10px;cursor:pointer;color:#c9cdda}
+    .troca{white-space:nowrap;font-size:12px;font-weight:600;border:1px solid #2a2c35;background:#191a20;border-radius:8px;padding:4px 10px;cursor:pointer;color:#c9cdda;line-height:1.4}
+    .troca:hover:not([disabled]){border-color:#4c8dff;color:#fff}
+    .troca:focus-visible{outline:2px solid #4c8dff;outline-offset:2px}
+    .passo .troca{margin-left:auto}
+    #ajmic{width:42px;height:auto;font-size:16px;padding:0}
     .seg{display:flex;border:1px solid #2a2c35;border-radius:10px;overflow:hidden;margin-bottom:18px}
     .seg button{flex:1;border:0;border-right:1px solid #2a2c35;background:#191a20;color:#c9cdda;padding:9px 4px;cursor:pointer;font-size:13px}
     .seg button:last-child{border-right:0}
