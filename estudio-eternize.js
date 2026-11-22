@@ -1,7 +1,7 @@
-// Estúdio Eternize — controle remoto, versão 0.15.1 (gerado por leona/gerar.py)
+// Estúdio Eternize — controle remoto, versão 0.16.0 (gerado por leona/gerar.py)
 (function () {
 'use strict';
-const VERSAO_SCRIPT = '0.15.1';
+const VERSAO_SCRIPT = '0.16.0';
 // Faz o código da extensão (content.js) rodar no Tampermonkey: cria um "chrome" de mentira com as mesmas funções
 // (guardar dados, falar com o Estúdio deste computador). O código do menu é o MESMO da extensão.
 const chrome = (() => {
@@ -63,6 +63,11 @@ const chrome = (() => {
       if (msg.tipo === 'gerar') {
         const r = await estudio('/api/leona/pedido', { method: 'POST', body: JSON.stringify(msg.pedido), tempo: 120000 });
         return { ok: r.status === 200 && !!(r.json && r.json.ok), id: r.json && r.json.id, erro: (r.json && r.json.erro) || (r.status !== 200 ? 'O Estúdio respondeu ' + r.status + '.' : '') };
+      }
+      if (msg.tipo === 'ponto') { const r = await estudio('/api/ponto/meu'); return { ok: r.status === 200, dados: r.json, porta: r.porta, erro: (r.json && r.json.erro) || '' }; }
+      if (msg.tipo === 'ponto_acao') {
+        const r = await estudio(msg.acao === 'encerrar' ? '/api/ponto/encerrar' : '/api/ponto/bater', { method: 'POST', body: '{}' });
+        return { ok: r.status === 200, erro: (r.json && r.json.erro) || (r.status !== 200 ? 'O Estúdio respondeu ' + r.status + '.' : '') };
       }
       if (msg.tipo === 'status') { const r = await estudio('/api/leona/status?id=' + encodeURIComponent(msg.id)); return { ok: r.status === 200, dados: r.json }; }
       if (msg.tipo === 'arquivo') {
@@ -462,6 +467,111 @@ const chrome = (() => {
     btn.appendChild(svg);
     caixa.append(btn, qtdEl, pontoEl);
   })();
+  // ---------- ponto do editor: botão de relógio ao lado do botão do Estúdio ----------
+  // Mesmo ponto do Estúdio: o primeiro pedido do dia abre sozinho; aqui o editor pausa, volta e encerra o dia.
+  const caixaPonto = document.createElement('div');
+  caixaPonto.id = 'estudio-ponto-caixa';
+  caixaPonto.className = 'relative inline-flex';
+  const btnPonto = document.createElement('button');
+  btnPonto.type = 'button';
+  btnPonto.id = 'estudio-ponto-btn';
+  btnPonto.className = btn.className;
+  btnPonto.setAttribute('aria-label', 'Estúdio Eternize: meu ponto');
+  btnPonto.title = 'Meu ponto';
+  const bolaPonto = document.createElement('span');
+  bolaPonto.style.cssText = 'position:absolute;bottom:3px;right:3px;width:9px;height:9px;background:#8e8e9a;border:2px solid #16161a;border-radius:50%;pointer-events:none;box-sizing:content-box';
+  btnPonto.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24" class="w-[18px] h-[18px] shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9.5 3h5"/></svg>';
+  caixaPonto.append(btnPonto, bolaPonto);
+  const pop = document.createElement('div');
+  pop.id = 'estudio-ponto-pop';
+  const popSombra = pop.attachShadow({ mode: 'open' });
+  popSombra.innerHTML = `
+  <style>
+    :host{all:initial}
+    *{box-sizing:border-box;font-family:system-ui,Segoe UI,sans-serif}
+    .cx{position:fixed;z-index:2147483001;width:268px;background:#191a20;color:#ececf0;border:1px solid #2a2c35;border-radius:12px;padding:14px;box-shadow:0 14px 36px rgba(0,0,0,.45);display:none;font-size:13px;line-height:1.4}
+    .cx.on{display:block}
+    .est{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:700}
+    .pt{width:10px;height:10px;border-radius:50%;background:#8e8e9a;flex:none}
+    .trab .pt{background:#22d366;box-shadow:0 0 0 4px rgba(34,211,102,.2)}
+    .pausa .pt{background:#f0a030;box-shadow:0 0 0 4px rgba(240,160,48,.2)}
+    .sub{color:#8e8e9a;margin:4px 0 12px}
+    button{font:inherit;cursor:pointer;border-radius:8px;height:34px;padding:0 12px;width:100%;font-weight:600;border:1px solid #2a2c35;background:#1d1d22;color:#ececf0}
+    button:hover{border-color:#8e8e9a}
+    button.p{background:#4c8dff;border-color:#4c8dff;color:#fff}
+    button.p:hover{background:#3b7df0;border-color:#3b7df0}
+    button[disabled]{opacity:.5;cursor:default}
+    .linha{display:flex;gap:8px;margin-top:8px}
+    a{display:block;margin-top:12px;color:#8e8e9a;font-size:12px;text-align:center;cursor:pointer;text-decoration:none}
+    a:hover{color:#ececf0}
+    .erro{color:#f2686a;font-size:12px;margin-top:8px}
+  </style>
+  <div class="cx" id="cx"><div class="est" id="est"><span class="pt"></span><span id="estt">Meu ponto</span></div><div class="sub" id="sub"></div>
+    <button class="p" id="acao" type="button">Pausa</button><div class="linha"><button id="enc" type="button">Encerrar o dia</button></div>
+    <div class="erro" id="erro"></div><a id="ver">Ver meu ponto completo</a></div>`;
+  const P = s => popSombra.querySelector(s);
+  const PT = { estado: '', desde: 0, base: 0, quando: 0, porta: 0, falhou: false };
+  const fh = min => { min = Math.max(0, Math.floor(min || 0)); return Math.floor(min / 60) + 'h' + String(min % 60).padStart(2, '0'); };
+  const horaPT = t => new Date(t * 1000).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
+  function pintarPonto() {
+    const seg = Date.now() / 1000 - PT.quando;
+    bolaPonto.style.background = PT.falhou || !PT.estado || PT.estado === 'inicio' ? '#8e8e9a' : PT.estado === 'trabalhando' ? '#22d366' : '#f0a030';
+    const txtEstado = PT.falhou ? 'Estúdio fechado' : PT.estado === 'trabalhando' ? 'Trabalhando' : PT.estado === 'pausa' ? 'Em pausa' : PT.estado === 'encerrado' ? 'Dia encerrado' : 'Sem ponto hoje';
+    const total = PT.estado === 'trabalhando' ? PT.base + seg / 60 : PT.base;
+    btnPonto.title = 'Meu ponto: ' + txtEstado + (PT.estado && !PT.falhou ? ' · hoje ' + fh(total) : '');
+    const cx = P('#cx');
+    cx.classList.toggle('trab', !PT.falhou && PT.estado === 'trabalhando');
+    cx.classList.toggle('pausa', !PT.falhou && (PT.estado === 'pausa' || PT.estado === 'encerrado'));
+    P('#estt').textContent = txtEstado;
+    P('#sub').textContent = PT.falhou ? 'Abra o aplicativo do Estúdio neste computador.'
+      : PT.estado === 'trabalhando' ? 'desde ' + horaPT(PT.desde) + ' · hoje ' + fh(total)
+      : PT.estado === 'inicio' ? 'O ponto abre sozinho no seu primeiro pedido.'
+      : 'desde ' + horaPT(PT.desde) + ' · hoje ' + fh(total);
+    P('#acao').textContent = PT.estado === 'trabalhando' ? 'Pausa' : PT.estado === 'inicio' ? 'Iniciar' : 'Voltar';
+    P('#acao').disabled = P('#enc').disabled = PT.falhou;
+    P('#enc').style.display = PT.estado === 'trabalhando' ? '' : 'none';
+  }
+  async function carregarPonto() {
+    let r; try { r = await chrome.runtime.sendMessage({ tipo: 'ponto' }); } catch (e) { r = null; }
+    if (r && r.ok && r.dados) Object.assign(PT, { estado: r.dados.estado, desde: r.dados.desde || 0, base: (r.dados.hoje && r.dados.hoje.total_min) || 0, quando: Date.now() / 1000, porta: r.porta || PT.porta, falhou: false });
+    else PT.falhou = true;
+    pintarPonto();
+  }
+  async function acaoPonto(acao) {
+    P('#erro').textContent = '';
+    P('#acao').disabled = P('#enc').disabled = true;
+    let r; try { r = await chrome.runtime.sendMessage({ tipo: 'ponto_acao', acao }); } catch (e) { r = { ok: false, erro: String(e) }; }
+    if (!r || !r.ok) P('#erro').textContent = (r && r.erro) || 'Não deu certo. Tente de novo.';
+    await carregarPonto();
+  }
+  function abrirPop(abrir) {
+    const cx = P('#cx');
+    if (abrir) {
+      const r = btnPonto.getBoundingClientRect();
+      cx.style.top = Math.round(r.bottom + 8) + 'px';
+      cx.style.left = Math.max(8, Math.min(window.innerWidth - 276, Math.round(r.right - 268))) + 'px';
+      cx.classList.add('on'); carregarPonto();
+    } else cx.classList.remove('on');
+  }
+  btnPonto.addEventListener('click', e => { e.stopPropagation(); abrirPop(!P('#cx').classList.contains('on')); });
+  P('#acao').addEventListener('click', () => acaoPonto('bater'));
+  P('#enc').addEventListener('click', () => acaoPonto('encerrar'));
+  P('#ver').addEventListener('click', () => { if (PT.porta) window.open('http://127.0.0.1:' + PT.porta + '/ponto', '_blank'); });
+  document.addEventListener('click', e => { const cam = e.composedPath(); if (P('#cx').classList.contains('on') && !cam.includes(pop) && !cam.includes(caixaPonto)) abrirPop(false); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && P('#cx').classList.contains('on')) abrirPop(false); });
+  function posicionarPonto() {
+    if (caixa.parentElement) {
+      if (caixaPonto.nextElementSibling !== caixa || caixaPonto.parentElement !== caixa.parentElement) {
+        caixaPonto.style.cssText = caixa.style.position === 'fixed' ? 'position:fixed;top:14px;right:340px;z-index:2147483000;' : '';
+        caixa.before(caixaPonto);
+      }
+    } else if (caixaPonto.parentElement) caixaPonto.remove();
+    if (!pop.parentElement) document.body.appendChild(pop);
+  }
+  setInterval(() => { if (!document.hidden) carregarPonto(); }, 60000);
+  setTimeout(carregarPonto, 3000);
+  setInterval(() => { try { pintarPonto(); } catch (e) {} }, 20000);
+
   function posicionar() {
     const alvo = acharTraduzir();
     if (alvo) {
@@ -481,6 +591,7 @@ const chrome = (() => {
     try { pintarMarcas(); } catch (e) {}
     const av = avisos[chatAtual().id];
     pontoEl.style.display = av ? 'block' : 'none';
+    try { posicionarPonto(); } catch (e) {}
     btn.title = av ? (av === 'video' ? 'Estúdio Eternize: o vídeo deste chat está pronto' : 'Estúdio Eternize: a prévia deste chat está pronta') : 'Estúdio Eternize: fotos do cliente';
   }
   let ultimo = 0, agendado = null;
