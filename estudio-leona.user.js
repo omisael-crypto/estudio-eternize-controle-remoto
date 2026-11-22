@@ -2,7 +2,7 @@
 // @name         Estúdio Eternize
 // @namespace    eternize.estudio
 // @icon         https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/icone.png
-// @version      0.13.0
+// @version      0.14.0
 // @description  Mostra as fotos que o cliente enviou no chat da Leona, separa por pessoa e manda para o Estúdio Eternize.
 // @updateURL    https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-eternize.user.js
 // @downloadURL  https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-eternize.user.js
@@ -310,7 +310,11 @@ const chrome = (() => {
     .esq::-webkit-scrollbar-thumb:hover,.dir::-webkit-scrollbar-thumb:hover,.andam::-webkit-scrollbar-thumb:hover,.edit-corpo::-webkit-scrollbar-thumb:hover{background:#4c8dff}
     .veu{position:fixed;inset:0;background:#000a;z-index:2147483001;display:none;justify-content:flex-end}
     .veu.on{display:flex}
-    .gav{width:min(1020px,100%);height:100%;background:#121317;color:#e6e8ee;border-left:2px solid #4c8dff;display:flex;flex-direction:column;font-size:14px;position:relative}
+    .alca{position:absolute;left:-9px;top:0;bottom:0;width:16px;cursor:ew-resize;z-index:30;touch-action:none}
+    .alca::after{content:'';position:absolute;left:7px;top:0;bottom:0;width:3px;background:transparent;transition:background .12s}
+    .alca::before{content:'';position:absolute;left:6px;top:50%;width:5px;height:44px;margin-top:-22px;border-radius:3px;background:#4c8dff;opacity:0;transition:opacity .12s}
+    .alca:hover::after,.alca.arr::after{background:#4c8dff}.alca:hover::before,.alca.arr::before{opacity:1}
+    .gav{width:var(--larg,min(100%,max(1020px,58vw)));max-width:100%;height:100%;background:#121317;color:#e6e8ee;border-left:2px solid #4c8dff;display:flex;flex-direction:column;font-size:14px;position:relative}
     header{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;background:#191a20;border-bottom:1px solid #2a2c35}
     .tit{display:flex;align-items:center;gap:10px}
     .logo{width:34px;height:34px;flex:none}
@@ -430,7 +434,7 @@ const chrome = (() => {
     .andam .erro{color:#f2686a;font-size:.85rem}
     @media(max-width:1100px){.cols{grid-template-columns:1fr;grid-template-rows:none;overflow:auto}.col{display:flex;flex-direction:column;gap:10px}.col>*{grid-column:auto!important;grid-row:auto!important}.cartao{min-height:360px}}
   </style>
-  <div class="veu" id="veu"><div class="gav">
+  <div class="veu" id="veu"><div class="gav"><div class="alca" id="alca" title="Arraste para mudar a largura do painel (duplo clique volta ao tamanho padrão)"></div>
     <header><div class="tit"><svg class="logo" viewBox="0 0 512 512" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#161d4a"/><stop offset="1" stop-color="#262b73"/></linearGradient><radialGradient id="lb"><stop offset="0" stop-color="#fcd679" stop-opacity=".55"/><stop offset="1" stop-color="#fcd679" stop-opacity="0"/></radialGradient></defs><rect width="512" height="512" rx="110" fill="url(#lg)"/><circle cx="256" cy="256" r="175" fill="url(#lb)"/><polygon fill="#fcd679" points="256,92 282,236 420,256 282,276 256,420 230,276 92,256 230,236"/><polygon fill="#fff6dc" points="256,150 270,242 372,256 270,270 256,370 242,270 140,256 242,242"/><polygon fill="#fcd679" points="385,100 392,128 420,135 392,142 385,170 378,142 350,135 378,128"/><polygon fill="#fcd679" points="131,355 136,375 156,380 136,385 131,405 126,385 106,380 126,375"/></svg><div><h3>Estúdio Eternize · Nova homenagem</h3><small id="cli"></small></div></div><button class="x" id="fechar" aria-label="Fechar" title="Fechar">${IC.fecharG}</button></header>
     <div class="corpo" id="corpo"></div>
     <div class="edit" id="edit"></div>
@@ -1248,6 +1252,18 @@ const chrome = (() => {
       if (m && m.tipo === 'ola') responder({ ok: true, noCabecalho: !!acharTraduzir(), fotos: lerFotos().length, chat: chatAtual().id, botaoNaPagina: document.contains(btn) });
     });
   } catch (e) {}
+  // largura do painel: arraste a borda azul da esquerda (o tamanho fica guardado; duplo clique volta ao padrão)
+  (function () {
+    const gav = sombra.querySelector('.gav'), alca = $('#alca'); if (!gav || !alca) return;
+    const larguraTela = () => document.documentElement.clientWidth || window.innerWidth;
+    const aplicar = w => { if (w) gav.style.setProperty('--larg', Math.max(640, Math.min(larguraTela(), Math.round(w))) + 'px'); else gav.style.removeProperty('--larg'); };
+    chrome.storage.local.get({ largPainel: 0 }).then(c => aplicar(c.largPainel)).catch(() => {});
+    alca.addEventListener('pointerdown', e => { try { alca.setPointerCapture(e.pointerId); } catch (x) {} alca.classList.add('arr'); e.preventDefault(); });
+    alca.addEventListener('pointermove', e => { if (alca.classList.contains('arr')) aplicar(larguraTela() - e.clientX); });
+    const solta = e => { if (!alca.classList.contains('arr')) return; alca.classList.remove('arr'); try { alca.releasePointerCapture(e.pointerId); } catch (x) {} try { chrome.storage.local.set({ largPainel: Math.round(gav.getBoundingClientRect().width) }); } catch (x) {} };
+    alca.addEventListener('pointerup', solta); alca.addEventListener('pointercancel', solta);
+    alca.addEventListener('dblclick', () => { aplicar(0); try { chrome.storage.local.set({ largPainel: 0 }); } catch (x) {} });
+  })();
   console.log('[Estúdio Eternize] extensão ativa nesta aba');
   $('#fechar').onclick = () => $('#veu').classList.remove('on');
   // clicar fora do painel (na área escura) fecha
