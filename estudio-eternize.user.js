@@ -2,7 +2,7 @@
 // @name         Estúdio Eternize
 // @namespace    eternize.estudio
 // @icon         https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/icone.png
-// @version      0.12.3
+// @version      0.12.4
 // @description  Mostra as fotos que o cliente enviou no chat da Leona, separa por pessoa e manda para o Estúdio Eternize.
 // @updateURL    https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-eternize.user.js
 // @downloadURL  https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-eternize.user.js
@@ -140,6 +140,25 @@ const chrome = (() => {
   let buscando = false;
   let autoEnvio = true;   // chave "Envio automático ao cliente" (liga/desliga os botões "e enviar")
   const janelaPagina = (typeof unsafeWindow !== 'undefined' && unsafeWindow) || window;
+  const ico = (d, t = 16) => '<svg class="ico" width="' + t + '" height="' + t + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>';
+  const IC = {
+    tesoura: ico('<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12"/>'),
+    girarEsq: ico('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>'),
+    girarDir: ico('<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>'),
+    espelho: ico('<path d="M12 3v18"/><path d="M8 7 3 12l5 5V7z"/><path d="M16 7l5 5-5 5V7z"/>'),
+    trocar: ico('<path d="M7 7h13M16 3l4 4-4 4M17 17H4M8 13l-4 4 4 4"/>', 14),
+    pessoas: ico('<circle cx="8.5" cy="8" r="3.2"/><circle cx="16.5" cy="8" r="3.2"/><path d="M2 20c0-3.3 2.7-5.5 6.5-5.5s6.5 2.2 6.5 5.5zM15 14.7c.5-.2 1-.3 1.5-.3 3.8 0 5.5 2.3 5.5 5.6h-5.8"/>', 14),
+    estrela: ico('<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>', 13),
+    coracao: ico('<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>', 13),
+    telaCheia: ico('<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>', 18),
+    baixar: ico('<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>', 18),
+    fechar: ico('<path d="M6 6l12 12M18 6 6 18"/>', 14),
+    fecharG: ico('<path d="M6 6l12 12M18 6 6 18"/>', 20),
+    atualizar: ico('<path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 4v5h-5"/>', 13),
+    check: ico('<path d="M5 12.5l4.5 4.5L19 7.5"/>', 14),
+    abre: ico('<path d="M9 6l6 6-6 6"/>', 12),
+    fecha: ico('<path d="M6 9l6 6 6-6"/>', 12),
+  };
   const REC = window.SpeechRecognition || window.webkitSpeechRecognition || janelaPagina.SpeechRecognition || janelaPagina.webkitSpeechRecognition;
   let micAtivo = null;
   function avisoMic(texto, erro) {   // mensagem logo abaixo do campo "Quer mudar algo?"
@@ -307,6 +326,14 @@ const chrome = (() => {
     /* menu (igual ao da Nova homenagem do Estúdio) */
     .passo{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-weight:700}
     .passo b{width:22px;height:22px;border-radius:50%;background:#4c8dff;color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center}
+    .ico{flex:none;display:block}
+    .troca,.tb,.maisop,.stt{display:inline-flex;align-items:center;gap:6px}
+    .stt{display:flex}
+    .par button,.sc{display:inline-flex;align-items:center;justify-content:center;gap:5px}
+    .acs button{display:grid;place-items:center;padding:0}
+    .x{display:grid;place-items:center;width:36px;height:36px;padding:0;border-radius:8px}
+    .x:hover{color:#fff;background:#1d1d22}
+    .gr.ic{display:grid;place-items:center}
     .troca{white-space:nowrap;font-size:12px;font-weight:600;border:1px solid #2a2c35;background:#191a20;border-radius:8px;padding:4px 10px;cursor:pointer;color:#c9cdda;line-height:1.4}
     .troca:hover:not([disabled]){border-color:#4c8dff;color:#fff}
     .troca:focus-visible{outline:2px solid #4c8dff;outline-offset:2px}
@@ -401,7 +428,7 @@ const chrome = (() => {
     @media(max-width:1100px){.cols{grid-template-columns:1fr;grid-template-rows:none;overflow:auto}.col{display:flex;flex-direction:column;gap:10px}.col>*{grid-column:auto!important;grid-row:auto!important}.cartao{min-height:360px}}
   </style>
   <div class="veu" id="veu"><div class="gav">
-    <header><div class="tit"><svg class="logo" viewBox="0 0 512 512" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#161d4a"/><stop offset="1" stop-color="#262b73"/></linearGradient><radialGradient id="lb"><stop offset="0" stop-color="#fcd679" stop-opacity=".55"/><stop offset="1" stop-color="#fcd679" stop-opacity="0"/></radialGradient></defs><rect width="512" height="512" rx="110" fill="url(#lg)"/><circle cx="256" cy="256" r="175" fill="url(#lb)"/><polygon fill="#fcd679" points="256,92 282,236 420,256 282,276 256,420 230,276 92,256 230,236"/><polygon fill="#fff6dc" points="256,150 270,242 372,256 270,270 256,370 242,270 140,256 242,242"/><polygon fill="#fcd679" points="385,100 392,128 420,135 392,142 385,170 378,142 350,135 378,128"/><polygon fill="#fcd679" points="131,355 136,375 156,380 136,385 131,405 126,385 106,380 126,375"/></svg><div><h3>Estúdio Eternize · Nova homenagem</h3><small id="cli"></small></div></div><button class="x" id="fechar">×</button></header>
+    <header><div class="tit"><svg class="logo" viewBox="0 0 512 512" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#161d4a"/><stop offset="1" stop-color="#262b73"/></linearGradient><radialGradient id="lb"><stop offset="0" stop-color="#fcd679" stop-opacity=".55"/><stop offset="1" stop-color="#fcd679" stop-opacity="0"/></radialGradient></defs><rect width="512" height="512" rx="110" fill="url(#lg)"/><circle cx="256" cy="256" r="175" fill="url(#lb)"/><polygon fill="#fcd679" points="256,92 282,236 420,256 282,276 256,420 230,276 92,256 230,236"/><polygon fill="#fff6dc" points="256,150 270,242 372,256 270,270 256,370 242,270 140,256 242,242"/><polygon fill="#fcd679" points="385,100 392,128 420,135 392,142 385,170 378,142 350,135 378,128"/><polygon fill="#fcd679" points="131,355 136,375 156,380 136,385 131,405 126,385 106,380 126,375"/></svg><div><h3>Estúdio Eternize · Nova homenagem</h3><small id="cli"></small></div></div><button class="x" id="fechar" aria-label="Fechar" title="Fechar">${IC.fecharG}</button></header>
     <div class="corpo" id="corpo"></div>
     <div class="edit" id="edit"></div>
   </div></div>`;
@@ -625,8 +652,8 @@ const chrome = (() => {
     const miniaturas = fotosSel.map(f => `<button class="pick ${f.id === ed.fotoId ? 'at' : ''}" data-pick="${f.id}" title="Usar esta foto"><img src="${esc(f.src)}"></button>`).join('');
     $('#edit').innerHTML = `
       <div class="edit-top"><h4>Recortar a pessoa ${ed.i + 1}</h4>
-        <button class="tb" data-ed="esq">↺ Girar à esquerda</button><button class="tb" data-ed="dir">↻ Girar à direita</button>
-        <button class="tb ${ed.flip ? 'on' : ''}" data-ed="flip">⇄ Espelhar</button>
+        <button class="tb" data-ed="esq">${IC.girarEsq} Girar à esquerda</button><button class="tb" data-ed="dir">${IC.girarDir} Girar à direita</button>
+        <button class="tb ${ed.flip ? 'on' : ''}" data-ed="flip">${IC.espelho} Espelhar</button>
         <button class="tb" data-ed="zero" style="margin-left:auto">Desfazer giro</button></div>
       <div class="edit-pes"><span>Foto do cliente:</span>${miniaturas}</div>
       <div class="edit-corpo" id="editcorpo">${ed.carregando ? '<div class="ocupado">Abrindo a foto…</div>' : ed.erro ? `<div class="aviso bad">${esc(ed.erro)}</div>` : '<div class="stage" id="stage"><canvas id="ec"></canvas></div>'}</div>
@@ -699,7 +726,7 @@ const chrome = (() => {
   const BT = (cls, dado, txt, on) => `<button class="${cls}${on ? ' on' : ''}" ${dado}>${txt}</button>`;
 
   const contaOps = () => pessoas.reduce((a, p) => a + ['animal', 'bebe', 'semcamisa', 'calca', 'vestido'].filter(k => p[k]).length, 0) + (ajuste.trim() ? 1 : 0);
-  const rotuloMais = () => { const k = contaOps(); return (mais ? '▾' : '▸') + ' Mais opções' + (k ? ` <span class="cnt">${k} ${k > 1 ? 'ligadas' : 'ligada'}</span>` : ''); };
+  const rotuloMais = () => { const k = contaOps(); return (mais ? IC.fecha : IC.abre) + ' Mais opções' + (k ? ` <span class="cnt">${k} ${k > 1 ? 'ligadas' : 'ligada'}</span>` : ''); };
 
   function desenhar() {
     const chat = chatAtual();
@@ -714,12 +741,12 @@ const chrome = (() => {
       return `<div class="pes">
         <div class="slot ${i === ativa ? 'ativa' : ''} ${f ? 'cheio' : ''}" data-slot="${i}">
           <b>${emJuntos() ? 'Foto com as duas pessoas' : 'P' + (i + 1)}</b>
-          <div class="acs"><button data-edit="${i}" title="Recortar esta pessoa de uma foto do cliente" aria-label="Recortar">✂</button>${f ? `<button data-lim="${i}" title="Tirar a foto" aria-label="Tirar a foto">×</button>` : ''}</div>
-          ${f ? `<img src="${esc(p.editada ? p.editada.thumb : f.src)}">${p.editada ? '<span class="etq">recortada</span>' : ''}` : '<span class="dica">Clique numa foto do chat ou use o ✂ para recortar a pessoa</span>'}
+          <div class="acs"><button data-edit="${i}" title="Recortar esta pessoa de uma foto do cliente" aria-label="Recortar">${IC.tesoura}</button>${f ? `<button data-lim="${i}" title="Tirar a foto" aria-label="Tirar a foto">${IC.fechar}</button>` : ''}</div>
+          ${f ? `<img src="${esc(p.editada ? p.editada.thumb : f.src)}">${p.editada ? '<span class="etq">recortada</span>' : ''}` : '<span class="dica">Clique numa foto do chat ou use o botão de tesoura para recortar a pessoa</span>'}
           ${p.busy ? '<div class="ocupado">Abrindo a foto…</div>' : ''}
         </div>
         ${emJuntos() ? `<div class="jq">${['1f2v', '1v2f', '2f'].map(q => BT('', 'data-jq="' + q + '"', NOMEJQ[q], jq === q)).join('')}</div>` : ''}
-        ${n >= 2 && !emJuntos() ? `<div class="par" data-est="${i}">${BT('', 'data-v="0"', '★ Faleceu', !p.vivo)}${BT('', 'data-v="1"', '♥ Está viva', p.vivo)}</div>` : ''}
+        ${n >= 2 && !emJuntos() ? `<div class="par" data-est="${i}">${BT('', 'data-v="0"', IC.estrela + ' Faleceu', !p.vivo)}${BT('', 'data-v="1"', IC.coracao + ' Está viva', p.vivo)}</div>` : ''}
         ${n >= 2 && n <= 4 && !emJuntos() ? `<div class="par ${todasFalecidas() ? '' : 'escondido'}" data-papel="${i}">${BT('', 'data-pp="espera"', 'No céu', p.papel === 'espera')}${BT('', 'data-pp="chega"', 'Chegou', p.papel === 'chega')}</div>` : ''}
         ${mais && !emJuntos() ? `<div class="trio">${BT('sc', 'data-op="animal"', 'Animal', p.animal)}${BT('sc', 'data-op="bebe"', 'Bebê', p.bebe)}${livre ? BT('sc', 'data-op="semcamisa"', 'Sem camisa', p.semcamisa) : ''}</div>
           ${livre ? `<div class="duo">${BT('sc', 'data-op="calca"', 'Calça', p.calca)}${BT('sc', 'data-op="vestido"', 'Vestido', p.vestido)}</div>` : ''}` : ''}
@@ -727,13 +754,13 @@ const chrome = (() => {
     }).join('');
 
     $('#corpo').innerHTML = `
-      <div class="esq"><h5>Fotos que o cliente enviou (${fotosSel.length}) — clique para colocar na pessoa marcada <button class="troca" id="antigas" style="margin-left:10px;text-transform:none;letter-spacing:0">${buscando ? 'Buscando…' : '⟳ Buscar fotos antigas'}</button></h5>
+      <div class="esq"><h5>Fotos que o cliente enviou (${fotosSel.length}) — clique para colocar na pessoa marcada <button class="troca" id="antigas" style="margin-left:10px;text-transform:none;letter-spacing:0">${buscando ? 'Buscando…' : IC.atualizar + ' Buscar fotos antigas'}</button></h5>
         <div class="fotos">${fotosSel.map(f => `<div class="foto" data-f="${f.id}"><img src="${esc(f.src)}">${uso(f.id)}</div>`).join('') || '<div class="vazio">Nenhuma foto achada neste chat.</div>'}</div></div>
       <div class="dir" id="dir">
-        <div class="passo"><b>1</b><span>Quantas pessoas?</span>${n === 2 ? `<button class="troca" id="juntos" aria-pressed="${emJuntos()}" title="As duas pessoas aparecem na mesma foto: cole uma foto só e diga quem faleceu" style="${emJuntos() ? 'background:#4c8dff;color:#fff;border-color:#4c8dff' : ''}">👥 Mesma foto</button>` : ''}</div>
+        <div class="passo"><b>1</b><span>Quantas pessoas?</span>${n === 2 ? `<button class="troca" id="juntos" aria-pressed="${emJuntos()}" title="As duas pessoas aparecem na mesma foto: cole uma foto só e diga quem faleceu" style="${emJuntos() ? 'background:#4c8dff;color:#fff;border-color:#4c8dff' : ''}">${IC.pessoas} Mesma foto</button>` : ''}</div>
         <div class="seg">${[1, 2, 3, 4].map(k => `<button data-n="${k}" class="${k === n ? 'on' : ''}">${k} ${k === 1 ? 'pessoa' : 'pessoas'}</button>`).join('')}<button data-n="5" class="mais ${n > 4 ? 'on' : ''}" title="Mais pessoas (5 a 8)" aria-label="Mais pessoas, de 5 a 8" style="flex:0 0 44px">+</button></div>
         ${n > 4 ? `<div class="seg">${[5, 6, 7, 8].map(k => `<button data-n="${k}" class="${k === n ? 'on' : ''}">${k} pessoas</button>`).join('')}</div>` : ''}
-        <div class="passo"><b>2</b><span>${emJuntos() ? 'Cole a foto com as duas e diga quem faleceu' : n >= 2 ? 'Cole as fotos e marque quem faleceu' : 'Cole a foto'}</span>${n >= 2 && n <= 4 && !emJuntos() ? '<button class="troca" id="troca" title="Inverter a ordem (esquerda e direita)">⇄ Trocar</button>' : ''}</div>
+        <div class="passo"><b>2</b><span>${emJuntos() ? 'Cole a foto com as duas e diga quem faleceu' : n >= 2 ? 'Cole as fotos e marque quem faleceu' : 'Cole a foto'}</span>${n >= 2 && n <= 4 && !emJuntos() ? '<button class="troca" id="troca" title="Inverter a ordem (esquerda e direita)">' + IC.trocar + ' Trocar</button>' : ''}</div>
         <div class="grade ${n === 1 || emJuntos() ? 'um' : ''}">${cartoes}</div>
         ${prob ? `<div class="aviso">${esc(prob)}</div>` : ''}
         <button class="maisop" id="mais">${rotuloMais()}</button>
@@ -1030,11 +1057,11 @@ const chrome = (() => {
           <div class="stt" id="r-msg"></div></section>
         <section class="col"><div class="ct"><span>2 · Prévia · cliente</span><span id="p-pill"></span></div>
           <div class="cartao" id="c-previa"></div>
-          <div class="lin2"><button class="gr" id="e-previa" disabled>Enviar prévia ao cliente</button><button class="gr sec ic" id="f-previa" title="Tela cheia" aria-label="Tela cheia" disabled>⛶</button><button class="gr sec ic" id="b-previa" title="Baixar a prévia" aria-label="Baixar" disabled>⬇</button></div>
+          <div class="lin2"><button class="gr" id="e-previa" disabled>Enviar prévia ao cliente</button><button class="gr sec ic" id="f-previa" title="Tela cheia" aria-label="Tela cheia" disabled>${IC.telaCheia}</button><button class="gr sec ic" id="b-previa" title="Baixar a prévia" aria-label="Baixar" disabled>${IC.baixar}</button></div>
           <div class="stt" id="s-previa"></div></section>
         <section class="col"><div class="ct"><span id="v-tit">3 · Vídeo</span><span id="v-pill"></span></div>
           <div class="cartao" id="c-video"></div>
-          <div class="lin2"><button class="gr" id="e-video" disabled>Enviar vídeo ao cliente</button><button class="gr sec ic" id="f-video" title="Tela cheia" aria-label="Tela cheia" disabled>⛶</button><button class="gr sec ic" id="b-video" title="Baixar o vídeo" aria-label="Baixar" disabled>⬇</button></div>
+          <div class="lin2"><button class="gr" id="e-video" disabled>Enviar vídeo ao cliente</button><button class="gr sec ic" id="f-video" title="Tela cheia" aria-label="Tela cheia" disabled>${IC.telaCheia}</button><button class="gr sec ic" id="b-video" title="Baixar o vídeo" aria-label="Baixar" disabled>${IC.baixar}</button></div>
           <div class="stt" id="s-video"></div></section>
       </div>
       <div class="rodape"><div id="erro"></div><div class="dicac" id="dicaenv"></div><div id="msgenv" class="aviso"></div></div></div>`;
@@ -1115,7 +1142,7 @@ const chrome = (() => {
             : `<div class="espera"><i class="gira"></i><b>${cron('previa', d.previa ? d.previa.inicio : d.inicio)}</b>${d.previa ? 'Gerando a prévia…' : 'Enviando as fotos ao Estúdio…'}</div>`; }
         $('#e-previa').disabled = !pronta; $('#f-previa').disabled = !(pronta && up); $('#b-previa').disabled = !pronta;
         $('#e-previa').textContent = ent.previa ? 'Enviar a prévia de novo' : 'Enviar prévia ao cliente';
-        $('#s-previa').className = 'stt' + (ent.previa ? ' ok' : ''); $('#s-previa').textContent = ent.previa ? '✓ enviada ao cliente às ' + hora(ent.previa) : '';
+        $('#s-previa').className = 'stt' + (ent.previa ? ' ok' : ''); $('#s-previa').innerHTML = ent.previa ? IC.check + ' enviada ao cliente às ' + esc(hora(ent.previa)) : '';
         // 3 · vídeo
         const cv = $('#c-video');
         $('#v-tit').textContent = '3 · Vídeo' + (d.video && d.video.criado ? ' · ' + d.video.criado.slice(0, 11) : '');
@@ -1133,7 +1160,7 @@ const chrome = (() => {
               : '<div class="espera">O vídeo começa quando a prévia ficar pronta.</div>'; }
           $('#e-video').disabled = !videoPronto; $('#f-video').disabled = !(videoPronto && uv); $('#b-video').disabled = !videoPronto;
           $('#e-video').textContent = ent.video ? 'Enviar o vídeo de novo' : 'Enviar vídeo ao cliente';
-          $('#s-video').className = 'stt' + (ent.video ? ' ok' : ''); $('#s-video').textContent = ent.video ? '✓ enviado ao cliente às ' + hora(ent.video) : '';
+          $('#s-video').className = 'stt' + (ent.video ? ' ok' : ''); $('#s-video').innerHTML = ent.video ? IC.check + ' enviado ao cliente às ' + esc(hora(ent.video)) : '';
         }
         if (!direto) { $('#e-video').disabled = true; $('#f-video').disabled = true; $('#b-video').disabled = true; }
         $('#erro').innerHTML = erro ? `<div class="erro">${esc(erro)}</div>` : '';
