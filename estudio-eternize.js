@@ -1,7 +1,7 @@
-// Estúdio Eternize — controle remoto, versão 0.16.1 (gerado por leona/gerar.py)
+// Estúdio Eternize — controle remoto, versão 0.16.2 (gerado por leona/gerar.py)
 (function () {
 'use strict';
-const VERSAO_SCRIPT = '0.16.1';
+const VERSAO_SCRIPT = '0.16.2';
 // Faz o código da extensão (content.js) rodar no Tampermonkey: cria um "chrome" de mentira com as mesmas funções
 // (guardar dados, falar com o Estúdio deste computador). O código do menu é o MESMO da extensão.
 const chrome = (() => {
@@ -103,6 +103,10 @@ const chrome = (() => {
       alert(r.ok ? 'Estúdio ligado (versão ' + ((r.dados && r.dados.versao) || '?') + ') na porta ' + r.porta + '.' : 'Não achei o Estúdio. Abra o aplicativo do Estúdio.');
     });
   } catch (e) {}
+
+  // ---- avisa o Estúdio, a cada minuto, que o controle remoto está ligado (o Estúdio mostra "conectado" no menu) ----
+  const batida = () => { estudio('/api/leona/controle', { method: 'POST', body: JSON.stringify({ versao: typeof VERSAO_SCRIPT !== 'undefined' ? VERSAO_SCRIPT : '' }), tempo: 5000 }).catch(() => {}); };
+  setTimeout(batida, 1500); setInterval(batida, 60000);
 
   return {
     runtime: {
