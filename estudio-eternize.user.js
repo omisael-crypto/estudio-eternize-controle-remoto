@@ -2,7 +2,7 @@
 // @name         Estúdio Eternize
 // @namespace    eternize.estudio
 // @icon         https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/icone.png
-// @version      0.14.0
+// @version      0.15.0
 // @description  Mostra as fotos que o cliente enviou no chat da Leona, separa por pessoa e manda para o Estúdio Eternize.
 // @updateURL    https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-eternize.user.js
 // @downloadURL  https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-eternize.user.js
@@ -138,6 +138,7 @@ const chrome = (() => {
   const MAX_PESSOAS = 4;
   let n, pessoas, ativa, fotosSel, mais, ajuste, relogio = null, msg = '';
   let buscando = false;
+  var marcas = new Map(), marcasChat = '';   // foto (endereço) -> ['P1', 'P3']: o que já foi marcado neste chat
   let autoEnvio = true;   // chave "Envio automático ao cliente" (liga/desliga os botões "e enviar")
   const janelaPagina = (typeof unsafeWindow !== 'undefined' && unsafeWindow) || window;
   const ico = (d, t = 16) => '<svg class="ico" width="' + t + '" height="' + t + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>';
@@ -308,6 +309,7 @@ const chrome = (() => {
     .esq::-webkit-scrollbar-track,.dir::-webkit-scrollbar-track,.andam::-webkit-scrollbar-track,.edit-corpo::-webkit-scrollbar-track{background:transparent}
     .esq::-webkit-scrollbar-thumb,.dir::-webkit-scrollbar-thumb,.andam::-webkit-scrollbar-thumb,.edit-corpo::-webkit-scrollbar-thumb{background:#3a3d4a;border-radius:8px}
     .esq::-webkit-scrollbar-thumb:hover,.dir::-webkit-scrollbar-thumb:hover,.andam::-webkit-scrollbar-thumb:hover,.edit-corpo::-webkit-scrollbar-thumb:hover{background:#4c8dff}
+    .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#16161a;color:#ececf0;border:1px solid #2a2a31;border-left:3px solid #4c8dff;border-radius:10px;padding:11px 18px;font-size:13px;font-weight:600;z-index:2147483002;display:none;box-shadow:0 6px 24px #0008;max-width:90vw}
     .veu{position:fixed;inset:0;background:#000a;z-index:2147483001;display:none;justify-content:flex-end}
     .veu.on{display:flex}
     .alca{position:absolute;left:-9px;top:0;bottom:0;width:16px;cursor:ew-resize;z-index:30;touch-action:none}
@@ -496,6 +498,7 @@ const chrome = (() => {
     }
     const q = String(lerFotos().length);
     if (qtdEl.textContent !== q) qtdEl.textContent = q;
+    try { pintarMarcas(); } catch (e) {}
     const av = avisos[chatAtual().id];
     pontoEl.style.display = av ? 'block' : 'none';
     btn.title = av ? (av === 'video' ? 'Estúdio Eternize: o vídeo deste chat está pronto' : 'Estúdio Eternize: a prévia deste chat está pronta') : 'Estúdio Eternize: fotos do cliente';
@@ -881,7 +884,7 @@ const chrome = (() => {
   let rascunho = null, tRasc = null;
   const chaveRasc = ch => 'rasc_' + ch;
   async function lerRascunho(ch) { try { return (await chrome.storage.local.get(chaveRasc(ch)))[chaveRasc(ch)] || null; } catch (e) { return null; } }
-  function limparRascunho(ch) { clearTimeout(tRasc); rascunho = null; try { chrome.storage.local.remove(chaveRasc(ch)); } catch (e) {} }
+  function limparRascunho(ch) { marcas.clear(); marcasChat = ''; clearTimeout(tRasc); rascunho = null; try { chrome.storage.local.remove(chaveRasc(ch)); } catch (e) {} }
   function agendarRascunho() {
     if (!$('#veu').classList.contains('on') || !$('#gdireto')) return;   // só quando o menu está na tela (não no andamento)
     const ch = chatAtual().id; if (!ch) return;
@@ -1252,6 +1255,105 @@ const chrome = (() => {
       if (m && m.tipo === 'ola') responder({ ok: true, noCabecalho: !!acharTraduzir(), fotos: lerFotos().length, chat: chatAtual().id, botaoNaPagina: document.contains(btn) });
     });
   } catch (e) {}
+  // ---------- menu das fotos do chat (as setinhas ao lado da foto): "Marcar como P1 / P2 / P3 / P4" ----------
+  const toastEl = document.createElement('div'); toastEl.className = 'toast'; sombra.appendChild(toastEl);
+  let toastT = null;
+  function toast(texto) { toastEl.textContent = texto; toastEl.style.display = 'block'; clearTimeout(toastT); toastT = setTimeout(() => { toastEl.style.display = 'none'; }, 3200); }
+
+  async function carregarMarcas() {
+    try {
+      const ch = chatAtual().id; marcasChat = ch; marcas = new Map();
+      if (!ch) return;
+      const d = await lerRascunho(ch);
+      if (d && Array.isArray(d.pessoas)) {
+        d.pessoas.forEach((q, i) => { if (q && q.fotoSrc) { const l = marcas.get(q.fotoSrc) || []; l.push('P' + (i + 1)); marcas.set(q.fotoSrc, l); } });
+        if (d.juntos && d.n === 2) marcas.forEach((l, k) => marcas.set(k, ['Mesma foto']));
+      }
+      pintarMarcas();
+    } catch (e) {}
+  }
+  function pintarMarcas() {   // carimbo azul no canto da foto: "P1", "P2"...
+    const ch = chatAtual().id;
+    if (ch !== marcasChat) { marcasChat = ch; carregarMarcas(); return; }
+    document.querySelectorAll('[data-message-id].justify-start img').forEach(img => {
+      if (img.closest('[role="button"]') || img.closest('#estudio-leona-raiz')) return;
+      const src = img.currentSrc || img.src, pai = img.parentElement; if (!pai) return;
+      const lista = marcas.get(src), atual = pai.querySelector(':scope > [data-estudio-marca]');
+      if (!lista) { if (atual) atual.remove(); return; }
+      const texto = lista.join(' + ');
+      if (atual) { if (atual.textContent !== texto) atual.textContent = texto; return; }
+      if (getComputedStyle(pai).position === 'static') pai.style.position = 'relative';
+      const c = document.createElement('span'); c.setAttribute('data-estudio-marca', '1'); c.textContent = texto;
+      c.style.cssText = 'position:absolute;top:4px;left:4px;background:#4c8dff;color:#fff;font:700 11px/1 system-ui,sans-serif;padding:3px 7px;border-radius:6px;pointer-events:none;box-shadow:0 1px 4px #0006';
+      pai.appendChild(c);
+    });
+  }
+  async function marcarFoto(src, k) {   // k = 1..4 (a pessoa); com o painel fechado grava no rascunho do chat
+    const ch = chatAtual().id; if (!ch) return;
+    lembrar();
+    if ($('#veu').classList.contains('on') && $('#gdireto')) {   // o menu do Estúdio está aberto: aplica direto
+      fotosSel = lerFotos(); const f = fotosSel.find(x => x.src === src); if (!f) return;
+      setN(Math.max(n, k)); pessoas[k - 1].foto = f.id; pessoas[k - 1].edit = null; pessoas[k - 1].editada = null; desenhar();
+    } else {
+      const d = (await lerRascunho(ch)) || { n: 1, juntos: false, jq: '2f', ajuste: '', mais: false, pessoas: [] };
+      d.n = Math.max(d.n || 1, k); if (d.n !== 2) d.juntos = false;
+      while (d.pessoas.length < d.n) d.pessoas.push({ ...nova(), fotoSrc: null });
+      d.pessoas[k - 1] = { ...d.pessoas[k - 1], foto: null, fotoSrc: src, edit: null, editada: null, busy: false };
+      await chrome.storage.local.set({ [chaveRasc(ch)]: d });
+      rascunho = d;
+    }
+    await carregarMarcas();
+    toast('Foto marcada como P' + k + '. Abra o Estúdio (estrela) para continuar.');
+  }
+  async function soltarFoto(src) {
+    const ch = chatAtual().id; if (!ch) return;
+    const d = await lerRascunho(ch); if (!d) return;
+    d.pessoas.forEach(q => { if (q && q.fotoSrc === src) { q.fotoSrc = null; q.edit = null; q.editada = null; } });
+    await chrome.storage.local.set({ [chaveRasc(ch)]: d });
+    rascunho = d; await carregarMarcas(); toast('Marca tirada da foto.');
+  }
+  function fecharMenuLeona() {
+    for (const t of ['pointerdown', 'mousedown', 'mouseup', 'click']) document.body.dispatchEvent(new MouseEvent(t, { bubbles: true, clientX: 2, clientY: 2 }));
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  }
+  function tratarMenu(no) {
+    if (no.nodeType !== 1) return;
+    const cands = no.matches && no.matches('div.fixed') ? [no] : [...no.querySelectorAll('div.fixed')];
+    for (const menu of cands) {
+      if (menu.dataset.estudio || menu.closest('#estudio-leona-raiz')) continue;
+      const botoes = [...menu.querySelectorAll('button')];
+      const enc = botoes.find(b => /^\s*Encaminhar\s*$/.test(b.textContent || ''));
+      if (!enc || !botoes.some(b => /^\s*Baixar\s*$/.test(b.textContent || ''))) continue;
+      menu.dataset.estudio = '1';
+      const msg = menu.closest('[data-message-id]') || (menu.parentElement && menu.parentElement.closest('[data-message-id]'));
+      if (!msg || !msg.classList.contains('justify-start')) continue;   // só fotos que o cliente mandou
+      const img = [...msg.querySelectorAll('img')].find(i => !i.closest('[role="button"]') && !i.closest('#estudio-leona-raiz'));
+      if (!img) continue;
+      const src = img.currentSrc || img.src; if (!/^https:/.test(src)) continue;
+      const lista = marcas.get(src) || [];
+      const sec = document.createElement('div'); sec.className = 'border-b border-border-default px-3 py-2'; sec.setAttribute('data-estudio-menu', '1');
+      const rot = document.createElement('div'); rot.className = 'text-xs flex items-center gap-1 text-text-muted mb-2';
+      rot.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="' + OURO + '" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="shrink-0" aria-hidden="true">' + ESTRELA + '</svg><span>Estúdio · marcar como</span>';
+      const grade = document.createElement('div'); grade.className = 'grid grid-cols-4 gap-0.5';
+      for (let k = 1; k <= 4; k++) {
+        const b = document.createElement('button'); b.type = 'button'; b.textContent = 'P' + k;
+        b.title = 'Usar esta foto na pessoa ' + k + ' do Estúdio';
+        b.className = 'flex shrink-0 items-center justify-center rounded text-sm font-semibold leading-none transition-colors cursor-pointer h-9 w-full ' + (lista.includes('P' + k) ? 'bg-accent-primary/10 text-accent-primary' : 'text-text-secondary hover:text-text-primary hover:bg-surface-interactive');
+        b.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); fecharMenuLeona(); marcarFoto(src, k); });
+        grade.appendChild(b);
+      }
+      sec.append(rot, grade);
+      if (lista.length) {
+        const t = document.createElement('button'); t.type = 'button'; t.textContent = 'Tirar a marca desta foto';
+        t.className = 'w-full rounded px-2 mt-1 text-center text-xs font-medium transition-colors cursor-pointer text-text-muted hover:text-text-primary hover:bg-surface-interactive py-2';
+        t.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); fecharMenuLeona(); soltarFoto(src); });
+        sec.appendChild(t);
+      }
+      enc.after(sec);
+    }
+  }
+  new MutationObserver(muts => { for (const m of muts) for (const no of m.addedNodes) { try { tratarMenu(no); } catch (e) {} } }).observe(document.body, { childList: true, subtree: true });
+
   // largura do painel: arraste a borda azul da esquerda (o tamanho fica guardado; duplo clique volta ao padrão)
   (function () {
     const gav = sombra.querySelector('.gav'), alca = $('#alca'); if (!gav || !alca) return;
