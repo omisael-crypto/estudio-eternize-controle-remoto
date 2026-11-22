@@ -2,7 +2,7 @@
 // @name         Estúdio Eternize (completo)
 // @namespace    eternize.estudio.completo
 // @icon         https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/icone.png
-// @version      0.17.3
+// @version      0.17.4
 // @description  Mostra as fotos que o cliente enviou no chat da Leona, separa por pessoa e manda para o Estúdio Eternize.
 // @updateURL    https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
 // @downloadURL  https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
@@ -22,10 +22,10 @@
 // @connect      raw.githubusercontent.com
 // ==/UserScript==
 
-// Estúdio Eternize — controle remoto, versão 0.17.3 (gerado por leona/gerar.py)
+// Estúdio Eternize — controle remoto, versão 0.17.4 (gerado por leona/gerar.py)
 (function () {
 'use strict';
-const VERSAO_SCRIPT = '0.17.3';
+const VERSAO_SCRIPT = '0.17.4';
 // Faz o código da extensão (content.js) rodar no Tampermonkey: cria um "chrome" de mentira com as mesmas funções
 // (guardar dados, falar com o Estúdio deste computador). O código do menu é o MESMO da extensão.
 const chrome = (() => {
@@ -106,7 +106,9 @@ const chrome = (() => {
       }
       if (msg.tipo === 'baixar') {
         if (!/^https:\/\//.test(msg.url || '')) return { ok: false, erro: 'Endereço inválido.' };
-        const r = await pedir(msg.url, { binario: true, tempo: 60000 });
+        let r = null;
+        try { const porta = await acharPorta(); r = await pedir('http://127.0.0.1:' + porta + '/api/leona/foto?url=' + encodeURIComponent(msg.url), { binario: true, tempo: 60000 }); } catch (e) { r = null; }   // 1º: pelo Estúdio deste computador (não depende da permissão do Tampermonkey)
+        if (!r || r.status !== 200) r = await pedir(msg.url, { binario: true, tempo: 60000 });   // 2º: direto, se o Estúdio antigo não tiver essa rota
         if (r.status !== 200) return { ok: false, erro: 'O servidor da foto respondeu ' + r.status + '.' };
         const by = new Uint8Array(r.response);
         const mime = by[0] === 0xff ? 'image/jpeg' : by[0] === 0x89 ? 'image/png' : by[0] === 0x52 ? 'image/webp' : (cab(r, 'content-type') || 'image/jpeg');
