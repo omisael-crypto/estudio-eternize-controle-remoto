@@ -17,7 +17,8 @@
 // @grant        unsafeWindow
 // @connect      127.0.0.1
 // @connect      localhost
-// @connect      *.b-cdn.net
+// @connect      b-cdn.net
+// @connect      leona-production.b-cdn.net
 // @connect      raw.githubusercontent.com
 // ==/UserScript==
 
