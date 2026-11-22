@@ -2,7 +2,7 @@
 // @name         Estúdio Eternize
 // @namespace    eternize.estudio
 // @icon         https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/icone.png
-// @version      1.0.0
+// @version      1.1.0
 // @description  Mostra as fotos que o cliente enviou no chat da Leona, separa por pessoa e manda para o Estúdio Eternize.
 // @updateURL    https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-eternize.user.js
 // @downloadURL  https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-eternize.user.js
@@ -22,12 +22,12 @@
 // ==/UserScript==
 
 // CARREGADOR do Estúdio Eternize. Este arquivo quase nunca muda: ele baixa o código do controle remoto do GitHub, guarda uma cópia
-// e roda. A cada poucos minutos confere se saiu versão nova; quando sai, baixa e recarrega a Leona sozinho assim que o editor
+// e roda. Ao abrir ou recarregar a Leona (e depois de hora em hora) confere se saiu versão nova; quando sai, baixa e recarrega a Leona sozinho assim que o editor
 // não estiver no meio de nada (painel fechado, sem mensagem sendo digitada, sem envio em andamento).
 (function () {
   'use strict';
   const URL_CODIGO = 'https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-eternize.js';
-  const CONFERIR_A_CADA = 3 * 60 * 1000;
+  const CONFERIR_A_CADA = 60 * 60 * 1000;   // de hora em hora (e sempre que a Leona é aberta ou recarregada)
   const w = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
   const baixar = () => new Promise((ok, erro) => GM_xmlhttpRequest({
     method: 'GET', url: URL_CODIGO + '?t=' + Math.floor(Date.now() / 60000), timeout: 20000,
@@ -49,33 +49,34 @@
     return document.visibilityState === 'hidden' || Date.now() - ultimoToque > 90 * 1000;
   }
 
-  let pendente = false;   // já baixou uma versão nova e está esperando o editor ficar livre
-  async function atualizar(salvo) {
-    if (pendente) return false;
+  let pendente = false;   // já baixou uma versão nova e está esperando o editor ficar livre para recarregar
+  function aplicarQuandoLivre() {
+    if (pendente) return; pendente = true;
+    const espera = setInterval(() => { if (ocioso()) { clearInterval(espera); location.reload(); } }, 15000);
+  }
+  async function conferir(emUso) {
     try {
       const novo = await baixar();
       GM_setValue('__ultima', Date.now());
-      if (novo !== salvo) {
-        GM_setValue('__codigo', novo); pendente = true;
-        const espera = setInterval(() => { if (ocioso()) { clearInterval(espera); location.reload(); } }, 15000);   // aplica quando o editor estiver livre
-        return true;
-      }
+      if (novo !== GM_getValue('__codigo', '')) GM_setValue('__codigo', novo);
+      if (novo !== emUso) aplicarQuandoLivre();
     } catch (e) { console.warn('[Estúdio Eternize] não consegui conferir atualização:', e && e.message); }
-    return false;
   }
 
   (async () => {
-    let salvo = GM_getValue('__codigo', '');
-    try { GM_registerMenuCommand('Atualizar o Estúdio agora', () => { GM_setValue('__ultima', 0); location.reload(); }); } catch (e) {}
-    if (!salvo) {   // primeira vez: precisa baixar antes de rodar
-      try { salvo = await baixar(); GM_setValue('__codigo', salvo); GM_setValue('__ultima', Date.now()); }
-      catch (e) { console.error('[Estúdio Eternize] não consegui baixar o código:', e && e.message); return; }
-    }
-    try { rodar(salvo); } catch (e) {
+    const salvo = GM_getValue('__codigo', '');
+    try { GM_registerMenuCommand('Atualizar o Estúdio agora', () => location.reload()); } catch (e) {}
+    let codigo = salvo;
+    // Ao abrir/recarregar a Leona: tenta pegar a versão mais nova ANTES de rodar (espera pouco se já tem uma guardada).
+    const tentativa = baixar().then(n => n, () => null);
+    const novo = salvo ? await Promise.race([tentativa, new Promise(r => setTimeout(() => r(null), 2500))]) : await tentativa;
+    if (novo) { codigo = novo; GM_setValue('__codigo', novo); GM_setValue('__ultima', Date.now()); }
+    if (!codigo) { console.error('[Estúdio Eternize] não consegui baixar o código. Confira a internet.'); return; }
+    try { rodar(codigo); } catch (e) {
       console.error('[Estúdio Eternize] o Chrome não deixou rodar o código baixado. Instale a versão completa (estudio-completo.user.js).', e);
       return;
     }
-    if (Date.now() - GM_getValue('__ultima', 0) > CONFERIR_A_CADA) await atualizar(salvo);
-    setInterval(() => atualizar(GM_getValue('__codigo', salvo)), CONFERIR_A_CADA);   // e continua conferindo enquanto a Leona estiver aberta
+    if (salvo && !novo) tentativa.then(n => { if (n) { GM_setValue('__codigo', n); GM_setValue('__ultima', Date.now()); if (n !== codigo) aplicarQuandoLivre(); } });   // a internet estava lenta: aplica quando chegar
+    setInterval(() => conferir(codigo), CONFERIR_A_CADA);   // e de hora em hora enquanto a Leona estiver aberta
   })();
 })();
