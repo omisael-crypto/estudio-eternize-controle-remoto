@@ -15,5 +15,11 @@ Se você tinha a extensão "carregada sem compactação", remova-a para o botão
 
 ## Atualização
 
-Automática: o Tampermonkey confere este endereço sozinho e troca o script quando sai versão nova.
-Para forçar agora: painel do Tampermonkey → **Utilitários** → **Verificar atualizações de scripts**.
+**Automática e rápida.** O script que você instala é um *carregador* pequeno. Ele baixa o código do controle remoto deste repositório e, a cada poucos minutos, confere se saiu versão nova. Quando sai, ele recarrega a Leona sozinho assim que você não estiver no meio de nada (painel do Estúdio fechado, sem mensagem sendo digitada, sem envio em andamento). Você não precisa fazer nada.
+
+Para forçar agora: menu do Tampermonkey (ícone) → **Atualizar o Estúdio agora**.
+
+### Reserva
+Se o Chrome não deixar o carregador rodar (o botão do Estúdio não aparece), instale no lugar a versão completa:
+https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
+Essa se atualiza pelo Tampermonkey (confere em geral uma vez por dia).
