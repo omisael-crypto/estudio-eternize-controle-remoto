@@ -2,7 +2,7 @@
 // @name         Estúdio Eternize
 // @namespace    eternize.estudio
 // @icon         https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/icone.png
-// @version      0.15.0
+// @version      0.15.1
 // @description  Mostra as fotos que o cliente enviou no chat da Leona, separa por pessoa e manda para o Estúdio Eternize.
 // @updateURL    https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-eternize.user.js
 // @downloadURL  https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-eternize.user.js
@@ -1316,6 +1316,11 @@ const chrome = (() => {
     for (const t of ['pointerdown', 'mousedown', 'mouseup', 'click']) document.body.dispatchEvent(new MouseEvent(t, { bubbles: true, clientX: 2, clientY: 2 }));
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   }
+  let ultimaSeta = null;   // a mensagem cuja seta ("Mais opções") foi clicada por último
+  document.addEventListener('click', e => {
+    const b = e.target && e.target.closest && e.target.closest('button[title="Mais opções"]');
+    if (b) ultimaSeta = b.closest('[data-message-id]');
+  }, true);
   function tratarMenu(no) {
     if (no.nodeType !== 1) return;
     const cands = no.matches && no.matches('div.fixed') ? [no] : [...no.querySelectorAll('div.fixed')];
@@ -1325,31 +1330,34 @@ const chrome = (() => {
       const enc = botoes.find(b => /^\s*Encaminhar\s*$/.test(b.textContent || ''));
       if (!enc || !botoes.some(b => /^\s*Baixar\s*$/.test(b.textContent || ''))) continue;
       menu.dataset.estudio = '1';
-      const msg = menu.closest('[data-message-id]') || (menu.parentElement && menu.parentElement.closest('[data-message-id]'));
+      const msg = menu.closest('[data-message-id]') || (menu.parentElement && menu.parentElement.closest('[data-message-id]')) || ultimaSeta;
       if (!msg || !msg.classList.contains('justify-start')) continue;   // só fotos que o cliente mandou
       const img = [...msg.querySelectorAll('img')].find(i => !i.closest('[role="button"]') && !i.closest('#estudio-leona-raiz'));
       if (!img) continue;
       const src = img.currentSrc || img.src; if (!/^https:/.test(src)) continue;
       const lista = marcas.get(src) || [];
       const sec = document.createElement('div'); sec.className = 'border-b border-border-default px-3 py-2'; sec.setAttribute('data-estudio-menu', '1');
-      const rot = document.createElement('div'); rot.className = 'text-xs flex items-center gap-1 text-text-muted mb-2';
-      rot.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="' + OURO + '" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="shrink-0" aria-hidden="true">' + ESTRELA + '</svg><span>Estúdio · marcar como</span>';
-      const grade = document.createElement('div'); grade.className = 'grid grid-cols-4 gap-0.5';
+      sec.style.cssText = 'display:flex;align-items:center;gap:10px';
+      const rot = document.createElement('div'); rot.className = 'text-sm text-text-secondary';
+      rot.style.cssText = 'display:flex;align-items:center;gap:8px;flex:1;white-space:nowrap';
+      rot.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + OURO + '" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none" aria-hidden="true">' + ESTRELA + '</svg><span>Marcar como</span>';
+      const grade = document.createElement('div'); grade.style.cssText = 'display:flex;gap:4px';
       for (let k = 1; k <= 4; k++) {
         const b = document.createElement('button'); b.type = 'button'; b.textContent = 'P' + k;
         b.title = 'Usar esta foto na pessoa ' + k + ' do Estúdio';
-        b.className = 'flex shrink-0 items-center justify-center rounded text-sm font-semibold leading-none transition-colors cursor-pointer h-9 w-full ' + (lista.includes('P' + k) ? 'bg-accent-primary/10 text-accent-primary' : 'text-text-secondary hover:text-text-primary hover:bg-surface-interactive');
+        b.style.cssText = 'height:30px;min-width:34px;padding:0 6px;display:flex;align-items:center;justify-content:center';
+        b.className = 'rounded text-sm font-semibold leading-none transition-colors cursor-pointer ' + (lista.includes('P' + k) ? 'bg-accent-primary/10 text-accent-primary' : 'text-text-secondary hover:text-text-primary hover:bg-surface-interactive');
         b.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); fecharMenuLeona(); marcarFoto(src, k); });
         grade.appendChild(b);
       }
       sec.append(rot, grade);
       if (lista.length) {
-        const t = document.createElement('button'); t.type = 'button'; t.textContent = 'Tirar a marca desta foto';
-        t.className = 'w-full rounded px-2 mt-1 text-center text-xs font-medium transition-colors cursor-pointer text-text-muted hover:text-text-primary hover:bg-surface-interactive py-2';
+        const t = document.createElement('button'); t.type = 'button';
+        t.className = 'w-full px-3 py-2 flex items-center gap-2.5 text-left text-sm text-text-secondary hover:text-text-primary hover:bg-surface-interactive transition-colors cursor-pointer';
+        t.innerHTML = '<span>Tirar a marca do Estúdio</span>';
         t.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); fecharMenuLeona(); soltarFoto(src); });
-        sec.appendChild(t);
-      }
-      enc.after(sec);
+        menu.insertBefore(sec, menu.firstChild); sec.after(t);
+      } else menu.insertBefore(sec, menu.firstChild);
     }
   }
   new MutationObserver(muts => { for (const m of muts) for (const no of m.addedNodes) { try { tratarMenu(no); } catch (e) {} } }).observe(document.body, { childList: true, subtree: true });
