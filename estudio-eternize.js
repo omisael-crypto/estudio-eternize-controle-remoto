@@ -1,7 +1,7 @@
-// Estúdio Eternize — controle remoto, versão 0.16.2 (gerado por leona/gerar.py)
+// Estúdio Eternize — controle remoto, versão 0.17.0 (gerado por leona/gerar.py)
 (function () {
 'use strict';
-const VERSAO_SCRIPT = '0.16.2';
+const VERSAO_SCRIPT = '0.17.0';
 // Faz o código da extensão (content.js) rodar no Tampermonkey: cria um "chrome" de mentira com as mesmas funções
 // (guardar dados, falar com o Estúdio deste computador). O código do menu é o MESMO da extensão.
 const chrome = (() => {
@@ -1053,11 +1053,20 @@ const chrome = (() => {
         if (alvo) {
           const pronto = alvo === 'video' ? videoPronto : pronta;
           if (erro) { try { chrome.storage.local.remove('auto_' + id); } catch (e) {} vigia.delete(ch); continue; }
-          if (pronto && chatAtual().id === ch && !tentando.has(id)) {
+          if (pronto && !tentando.has(id)) {   // não precisa do chat aberto: o envio vai direto pela API da Leona
             tentando.add(id);
-            try { chrome.storage.local.remove('auto_' + id); } catch (e) {}   // uma tentativa só: se falhar, o botão Enviar da tela continua valendo (nada é enviado duas vezes)
-            if (!(d.entregas && d.entregas[alvo])) { entregasAtual = d.entregas || {}; try { await devolver(id, ch, alvo, false, true); } catch (e) {} }
-            tentando.delete(id); vigia.delete(ch);
+            let livre = true;   // outra aba da Leona aberta também vigia: só uma envia
+            try { const lk = (await chrome.storage.local.get('lock_' + id))['lock_' + id]; if (lk && Date.now() - lk < 10 * 60 * 1000) livre = false; else await chrome.storage.local.set({ ['lock_' + id]: Date.now() }); } catch (e) {}
+            if (livre) {
+              try { chrome.storage.local.remove('auto_' + id); } catch (e) {}   // uma tentativa só: se falhar, o botão Enviar da tela continua valendo (nada é enviado duas vezes)
+              if (!(d.entregas && d.entregas[alvo])) {
+                entregasAtual = d.entregas || {};
+                try { await devolver(id, ch, alvo, false, true); } catch (e) {}
+                try { toast(msgEnvio.startsWith('!') ? msgEnvio.slice(1) : 'Chat #' + ch + ': ' + msgEnvio); } catch (e) {}
+              }
+              vigia.delete(ch);
+            }
+            tentando.delete(id);
           }
           continue;   // com envio automático pendente, continua vigiando até o chat abrir
         }
@@ -1129,9 +1138,41 @@ const chrome = (() => {
 
   const ocupado = d => { try { janelaPagina.__estudioOcupado = Math.max(0, (janelaPagina.__estudioOcupado || 0) + d); } catch (e) {} };   // o carregador não recarrega a Leona enquanto envia
   async function devolver(...a) { ocupado(1); try { return await devolverReal(...a); } finally { ocupado(-1); } }
+  // Envio direto pela API da Leona (o mesmo que o clipe faz): sobe o arquivo e posta a mensagem no chat PELO NÚMERO, então funciona
+  // com qualquer chat aberto (ou nenhum). O editor pode largar o pedido, ir para o próximo cliente, e a homenagem sai sozinha.
+  const API_LEONA = 'https://apiaws.leonasolutions.io/api/v1';
+  async function enviarPelaApi(chatId, file, tipo) {
+    let tk = ''; try { tk = janelaPagina.localStorage.getItem('auth_token') || ''; } catch (e) {}
+    if (!tk) throw new Error('Não achei o login da Leona nesta aba.');
+    const aut = { Authorization: /^Bearer /i.test(tk) ? tk : 'Bearer ' + tk };
+    const tp = tipo === 'video' ? 'video' : 'image';
+    const fd = new FormData(); fd.append('file', file, file.name); fd.append('message_type', tp); fd.append('meta_cloud', '1');
+    const up = await fetch(API_LEONA + '/media/upload', { method: 'POST', headers: aut, body: fd });
+    if (!up.ok) throw new Error('A Leona recusou o arquivo (upload ' + up.status + ').');
+    const u = await up.json().catch(() => null);
+    if (!u || !u.url) throw new Error('A Leona não devolveu o endereço do arquivo.');
+    const msg = await fetch(API_LEONA + '/chats/' + encodeURIComponent(chatId) + '/messages', {
+      method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, aut),
+      body: JSON.stringify({ message: { content: '', message_type: tp, media_url: u.url, caption: '', filename: u.filename || file.name, file_size: u.file_size || file.size, reply_to_message_id: null, is_reply: false } }),
+    });
+    if (!msg.ok) { let t = ''; try { t = (await msg.text()).slice(0, 160); } catch (e) {} throw new Error('A Leona recusou a mensagem (' + msg.status + '). ' + t); }
+    return true;
+  }
   async function devolverReal(id, chatId, tipo, soBaixar, forcar) {
     const nomeTipo = tipo === 'video' ? 'o vídeo' : 'a prévia';
     try {
+      if (!soBaixar && (forcar || autoEnviar)) {   // envio automático: direto pela API, com qualquer chat aberto
+        msgEnvio = 'Buscando ' + nomeTipo + ' no Estúdio…'; mostrarMsg();
+        const file = await pegarArquivo(id, tipo);
+        try {
+          msgEnvio = 'Enviando ' + nomeTipo + ' ao cliente…'; mostrarMsg();
+          await enviarPelaApi(chatId, file, tipo);
+          chrome.runtime.sendMessage({ tipo: 'entregue', id, arquivo: tipo }); msgEnvio = 'Enviei ' + nomeTipo + ' ao cliente.'; return;
+        } catch (e) {
+          if (chatAtual().id !== chatId) { msgEnvio = '!Não consegui enviar ' + nomeTipo + ' ao chat #' + chatId + ': ' + (e && e.message || e) + ' Abra esse chat e use o botão Enviar.'; return; }
+          console.warn('[Estúdio] envio direto falhou, tentando pela tela:', e);   // chat aberto: tenta pelo jeito antigo
+        }
+      }
       if (!soBaixar && chatAtual().id !== chatId) { msgEnvio = '!Este pedido é do chat #' + chatId + '. Abra esse chat para colocar ' + nomeTipo + ' nele.'; return; }
       msgEnvio = 'Buscando ' + nomeTipo + ' no Estúdio…'; mostrarMsg();
       const file = await pegarArquivo(id, tipo);
