@@ -1,4 +1,4 @@
-# Estúdio Eternize — Controle remoto (Tampermonkey)
+# Estúdio Eternize (Tampermonkey)
 
 Controle remoto do Estúdio Eternize: um botão dentro do chat da Leona que separa as fotos do cliente por pessoa e manda para o Estúdio (aplicativo do Windows) gerar a prévia e o vídeo.
 O script não guarda senha nem dado de cliente: ele só fala com o Estúdio que está aberto no seu próprio computador.
