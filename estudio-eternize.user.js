@@ -2,7 +2,7 @@
 // @name         Estúdio Eternize
 // @namespace    eternize.estudio
 // @icon         https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/icone.png
-// @version      0.12.2
+// @version      0.12.3
 // @description  Mostra as fotos que o cliente enviou no chat da Leona, separa por pessoa e manda para o Estúdio Eternize.
 // @updateURL    https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-eternize.user.js
 // @downloadURL  https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-eternize.user.js
@@ -14,6 +14,7 @@
 // @grant        GM_deleteValue
 // @grant        GM_listValues
 // @grant        GM_registerMenuCommand
+// @grant        unsafeWindow
 // @connect      127.0.0.1
 // @connect      localhost
 // @connect      *.b-cdn.net
@@ -138,18 +139,37 @@ const chrome = (() => {
   let n, pessoas, ativa, fotosSel, mais, ajuste, relogio = null, msg = '';
   let buscando = false;
   let autoEnvio = true;   // chave "Envio automático ao cliente" (liga/desliga os botões "e enviar")
-  const REC = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const janelaPagina = (typeof unsafeWindow !== 'undefined' && unsafeWindow) || window;
+  const REC = window.SpeechRecognition || window.webkitSpeechRecognition || janelaPagina.SpeechRecognition || janelaPagina.webkitSpeechRecognition;
   let micAtivo = null;
-  function falar(b, campo) {   // ditado: o que for falado entra no campo (igual ao microfone do Estúdio)
+  function avisoMic(texto, erro) {   // mensagem logo abaixo do campo "Quer mudar algo?"
+    const el = $('#micmsg'); if (!el) return;
+    el.textContent = texto || ''; el.className = 'aviso' + (erro ? ' bad' : ''); el.style.display = texto ? 'block' : 'none';
+  }
+  const MIC_ERRO = {
+    'not-allowed': 'O Chrome está bloqueando o microfone neste site. Clique no cadeado ao lado do endereço, escolha Microfone > Permitir e aperte F5.',
+    'service-not-allowed': 'O Chrome bloqueou o reconhecimento de voz neste site.',
+    'audio-capture': 'Não achei um microfone neste computador.',
+    'network': 'O reconhecimento de voz precisa de internet.',
+    'no-speech': 'Não ouvi nada. Clique no microfone e fale.',
+  };
+  async function falar(b, campo) {   // ditado: o que for falado entra no campo (igual ao microfone do Estúdio)
     if (b._rec) { b._rec.stop(); return; }
     if (micAtivo) micAtivo.abort();
+    try {   // se o microfone já está bloqueado para este site, avisa antes de tentar
+      if (navigator.permissions && navigator.permissions.query) {
+        const st = await navigator.permissions.query({ name: 'microphone' });
+        if (st.state === 'denied') { avisoMic(MIC_ERRO['not-allowed'], true); return; }
+      }
+    } catch (e) {}
+    avisoMic('');
     const r = new REC(); b._rec = r; micAtivo = r; r.lang = 'pt-BR'; r.interimResults = false; r.continuous = true;
     r.onresult = ev => { let t = ''; for (let i = ev.resultIndex; i < ev.results.length; i++) if (ev.results[i].isFinal) t += ev.results[i][0].transcript;
       if (t) { campo.value = (campo.value ? campo.value.replace(/\s*$/, ' ') : '') + t.trim(); campo.dispatchEvent(new Event('input', { bubbles: true })); } };
-    r.onstart = () => { b.classList.add('on'); b.setAttribute('aria-label', 'Parar'); b.title = 'Ouvindo… clique para parar'; };
-    r.onend = () => { if (micAtivo === r) micAtivo = null; b._rec = null; b.classList.remove('on'); b.setAttribute('aria-label', 'Falar'); b.title = 'Falar em vez de escrever'; };
-    r.onerror = ev => { if (ev && ev.error === 'not-allowed') { msg = '!O Chrome bloqueou o microfone neste site. Clique no cadeado ao lado do endereço e permita o microfone.'; } r.onend(); };
-    try { r.start(); } catch (x) { r.onend(); }
+    r.onstart = () => { b.classList.add('on'); b.setAttribute('aria-label', 'Parar'); b.title = 'Ouvindo… clique para parar'; avisoMic('Ouvindo… fale e clique no microfone de novo para parar.', false); };
+    r.onend = () => { if (micAtivo === r) micAtivo = null; b._rec = null; b.classList.remove('on'); b.setAttribute('aria-label', 'Falar'); b.title = 'Falar em vez de escrever'; if ($('#micmsg') && $('#micmsg').className === 'aviso') avisoMic(''); };
+    r.onerror = ev => { const c = (ev && ev.error) || 'erro'; if (c !== 'aborted') avisoMic(MIC_ERRO[c] || 'O microfone não funcionou.', true); r.onend(); };
+    try { r.start(); } catch (x) { r.onend(); avisoMic('Não consegui ligar o microfone. Confira a permissão do Chrome para este site.', true); }
   }
   let juntos = false, jq = '2f';   // "Mesma foto": as duas pessoas na mesma foto (só com 2 pessoas)
   const NOMEJQ = { '1f2v': 'A da esquerda faleceu', '1v2f': 'A da direita faleceu', '2f': 'As duas faleceram' };
@@ -717,7 +737,7 @@ const chrome = (() => {
         <div class="grade ${n === 1 || emJuntos() ? 'um' : ''}">${cartoes}</div>
         ${prob ? `<div class="aviso">${esc(prob)}</div>` : ''}
         <button class="maisop" id="mais">${rotuloMais()}</button>
-        ${mais ? `<div class="aj"><label for="aj">Quer mudar algo?</label><div style="display:flex;gap:8px;align-items:center"><input id="aj" maxlength="500" placeholder="Ex.: tirar o copo da mão" value="${esc(ajuste)}" style="flex:1">${REC ? '<button class="micb" id="ajmic" type="button" title="Falar em vez de escrever" aria-label="Falar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>' : ''}</div></div>` : ''}
+        ${mais ? `<div class="aj"><label for="aj">Quer mudar algo?</label><div style="display:flex;gap:8px;align-items:center"><input id="aj" maxlength="500" placeholder="Ex.: tirar o copo da mão" value="${esc(ajuste)}" style="flex:1">${REC ? '<button class="micb" id="ajmic" type="button" title="Falar em vez de escrever" aria-label="Falar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>' : ''}</div><div id="micmsg" class="aviso" style="display:none"></div></div>` : ''}
         <div class="passo" style="margin-top:14px"><b>3</b><span>Gerar</span></div>
         <div class="dicac">${dica()}</div>
         <label class="chv" title="Ligada: aparecem os botões 'e enviar' (quando o arquivo fica pronto, vai sozinho para o cliente, com este chat aberto). Desligada: você envia à mão."><input type="checkbox" id="chaveauto" ${autoEnvio ? 'checked' : ''}><i></i><span>Envio automático ao cliente</span></label>
