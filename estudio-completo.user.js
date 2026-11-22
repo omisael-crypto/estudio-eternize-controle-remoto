@@ -2,7 +2,7 @@
 // @name         Estúdio Eternize (completo)
 // @namespace    eternize.estudio.completo
 // @icon         https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/icone.png
-// @version      0.16.0
+// @version      0.16.1
 // @description  Mostra as fotos que o cliente enviou no chat da Leona, separa por pessoa e manda para o Estúdio Eternize.
 // @updateURL    https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
 // @downloadURL  https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
@@ -21,10 +21,10 @@
 // @connect      raw.githubusercontent.com
 // ==/UserScript==
 
-// Estúdio Eternize — controle remoto, versão 0.16.0 (gerado por leona/gerar.py)
+// Estúdio Eternize — controle remoto, versão 0.16.1 (gerado por leona/gerar.py)
 (function () {
 'use strict';
-const VERSAO_SCRIPT = '0.16.0';
+const VERSAO_SCRIPT = '0.16.1';
 // Faz o código da extensão (content.js) rodar no Tampermonkey: cria um "chrome" de mentira com as mesmas funções
 // (guardar dados, falar com o Estúdio deste computador). O código do menu é o MESMO da extensão.
 const chrome = (() => {
@@ -533,30 +533,26 @@ const chrome = (() => {
     <button class="p" id="acao" type="button">Pausa</button><div class="linha"><button id="enc" type="button">Encerrar o dia</button></div>
     <div class="erro" id="erro"></div><a id="ver">Ver meu ponto completo</a></div>`;
   const P = s => popSombra.querySelector(s);
-  const PT = { estado: '', desde: 0, base: 0, quando: 0, porta: 0, falhou: false };
-  const fh = min => { min = Math.max(0, Math.floor(min || 0)); return Math.floor(min / 60) + 'h' + String(min % 60).padStart(2, '0'); };
+  const PT = { estado: '', desde: 0, porta: 0, falhou: false };
   const horaPT = t => new Date(t * 1000).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
   function pintarPonto() {
-    const seg = Date.now() / 1000 - PT.quando;
     bolaPonto.style.background = PT.falhou || !PT.estado || PT.estado === 'inicio' ? '#8e8e9a' : PT.estado === 'trabalhando' ? '#22d366' : '#f0a030';
     const txtEstado = PT.falhou ? 'Estúdio fechado' : PT.estado === 'trabalhando' ? 'Trabalhando' : PT.estado === 'pausa' ? 'Em pausa' : PT.estado === 'encerrado' ? 'Dia encerrado' : 'Sem ponto hoje';
-    const total = PT.estado === 'trabalhando' ? PT.base + seg / 60 : PT.base;
-    btnPonto.title = 'Meu ponto: ' + txtEstado + (PT.estado && !PT.falhou ? ' · hoje ' + fh(total) : '');
+    btnPonto.title = 'Meu ponto: ' + txtEstado + (PT.estado && PT.estado !== 'inicio' && !PT.falhou ? ' desde ' + horaPT(PT.desde) : '');
     const cx = P('#cx');
     cx.classList.toggle('trab', !PT.falhou && PT.estado === 'trabalhando');
     cx.classList.toggle('pausa', !PT.falhou && (PT.estado === 'pausa' || PT.estado === 'encerrado'));
     P('#estt').textContent = txtEstado;
     P('#sub').textContent = PT.falhou ? 'Abra o aplicativo do Estúdio neste computador.'
-      : PT.estado === 'trabalhando' ? 'desde ' + horaPT(PT.desde) + ' · hoje ' + fh(total)
       : PT.estado === 'inicio' ? 'O ponto abre sozinho no seu primeiro pedido.'
-      : 'desde ' + horaPT(PT.desde) + ' · hoje ' + fh(total);
+      : 'desde ' + horaPT(PT.desde);
     P('#acao').textContent = PT.estado === 'trabalhando' ? 'Pausa' : PT.estado === 'inicio' ? 'Iniciar' : 'Voltar';
     P('#acao').disabled = P('#enc').disabled = PT.falhou;
     P('#enc').style.display = PT.estado === 'trabalhando' ? '' : 'none';
   }
   async function carregarPonto() {
     let r; try { r = await chrome.runtime.sendMessage({ tipo: 'ponto' }); } catch (e) { r = null; }
-    if (r && r.ok && r.dados) Object.assign(PT, { estado: r.dados.estado, desde: r.dados.desde || 0, base: (r.dados.hoje && r.dados.hoje.total_min) || 0, quando: Date.now() / 1000, porta: r.porta || PT.porta, falhou: false });
+    if (r && r.ok && r.dados) Object.assign(PT, { estado: r.dados.estado, desde: r.dados.desde || 0, porta: r.porta || PT.porta, falhou: false });
     else PT.falhou = true;
     pintarPonto();
   }
@@ -593,7 +589,6 @@ const chrome = (() => {
   }
   setInterval(() => { if (!document.hidden) carregarPonto(); }, 60000);
   setTimeout(carregarPonto, 3000);
-  setInterval(() => { try { pintarPonto(); } catch (e) {} }, 20000);
 
   function posicionar() {
     const alvo = acharTraduzir();
