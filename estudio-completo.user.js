@@ -2,7 +2,7 @@
 // @name         Estúdio Eternize (completo)
 // @namespace    eternize.estudio.completo
 // @icon         https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/icone.png
-// @version      0.17.1
+// @version      0.17.2
 // @description  Mostra as fotos que o cliente enviou no chat da Leona, separa por pessoa e manda para o Estúdio Eternize.
 // @updateURL    https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
 // @downloadURL  https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
@@ -21,10 +21,10 @@
 // @connect      raw.githubusercontent.com
 // ==/UserScript==
 
-// Estúdio Eternize — controle remoto, versão 0.17.1 (gerado por leona/gerar.py)
+// Estúdio Eternize — controle remoto, versão 0.17.2 (gerado por leona/gerar.py)
 (function () {
 'use strict';
-const VERSAO_SCRIPT = '0.17.1';
+const VERSAO_SCRIPT = '0.17.2';
 // Faz o código da extensão (content.js) rodar no Tampermonkey: cria um "chrome" de mentira com as mesmas funções
 // (guardar dados, falar com o Estúdio deste computador). O código do menu é o MESMO da extensão.
 const chrome = (() => {
@@ -1376,7 +1376,7 @@ const chrome = (() => {
       m.textContent = 'Enviando ao Estúdio…';
       let r; try { r = await chrome.runtime.sendMessage({ tipo: 'gerar', pedido: ped }); } catch (e) { r = { erro: String(e) }; }
       if (!r || !r.ok) { m.className = 'stt bad'; m.textContent = (r && r.erro) || 'Não achei o Estúdio.'; return; }
-      try { chrome.storage.local.set({ ['ped_' + r.id]: ped }); } catch (e) {}
+      try { chrome.storage.local.set({ ['ped_' + r.id]: ped }); if (autoEnvio) chrome.storage.local.set({ ['auto_' + r.id]: direto ? 'video' : 'previa' }); } catch (e) {}   // com a chave do envio automático ligada, refazer também envia sozinho
       guardar(chatId, r.id); acompanhar(r.id, chatId);
     };
     $('#r-direto').onclick = () => refazer(true);
