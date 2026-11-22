@@ -2,7 +2,7 @@
 // @name         Estúdio Eternize
 // @namespace    eternize.estudio
 // @icon         https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/icone.png
-// @version      0.11.2
+// @version      0.12.0
 // @description  Mostra as fotos que o cliente enviou no chat da Leona, separa por pessoa e manda para o Estúdio Eternize.
 // @updateURL    https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-eternize.user.js
 // @downloadURL  https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-eternize.user.js
@@ -137,6 +137,7 @@ const chrome = (() => {
   const MAX_PESSOAS = 4;
   let n, pessoas, ativa, fotosSel, mais, ajuste, relogio = null, msg = '';
   let buscando = false;
+  let autoEnvio = true;   // chave "Envio automático ao cliente" (liga/desliga os botões "e enviar")
   const REC = window.SpeechRecognition || window.webkitSpeechRecognition;
   let micAtivo = null;
   function falar(b, campo) {   // ditado: o que for falado entra no campo (igual ao microfone do Estúdio)
@@ -300,6 +301,14 @@ const chrome = (() => {
     .slot b{font-size:13px}
     .slot img{width:100%;height:190px;object-fit:contain;background:#0b0c10;border-radius:8px;display:block}   /* a foto/recorte inteiro, sem cortar de novo; altura fixa mantém os quadrados alinhados */
     .slot .dica{color:#8b90a0;font-size:12px}
+    .chv{display:flex;align-items:center;gap:10px;margin:2px 0 10px;font-size:13px;color:#c9cdda;cursor:pointer;user-select:none}
+    .chv input{position:absolute;opacity:0;pointer-events:none}
+    .chv i{flex:none;width:36px;height:20px;border-radius:12px;background:#2a2c35;position:relative;transition:background .15s}
+    .chv i::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#9aa0b2;transition:left .15s,background .15s}
+    .chv input:checked+i{background:#2f6bd6}.chv input:checked+i::after{left:18px;background:#fff}
+    .chv input:focus-visible+i{outline:2px solid #4c8dff;outline-offset:2px}
+    .bgrid{display:grid;grid-template-columns:1fr;gap:8px}.bgrid.dois{grid-template-columns:1fr 1fr}
+    .bgrid .go{margin:0;font-size:14px;padding:13px 8px}
     .jq{display:grid;grid-template-columns:1fr;border:1px solid #2a2c35;border-radius:9px;overflow:hidden}
     .jq button{border:0;border-bottom:1px solid #2a2c35;background:#16171c;color:#9aa0b2;padding:8px 2px;cursor:pointer;font-size:12px}
     .jq button:last-child{border-bottom:0}
@@ -703,8 +712,13 @@ const chrome = (() => {
         ${mais ? `<div class="aj"><label for="aj">Quer mudar algo?</label><div style="display:flex;gap:6px"><input id="aj" maxlength="500" placeholder="Ex.: tirar o copo da mão" value="${esc(ajuste)}" style="flex:1">${REC ? '<button class="troca" id="ajmic" title="Falar em vez de escrever" aria-label="Falar" style="margin:0">🎤</button>' : ''}</div></div>` : ''}
         <div class="passo" style="margin-top:14px"><b>3</b><span>Gerar</span></div>
         <div class="dicac">${dica()}</div>
-        <button class="go" id="gdireto" ${ok ? '' : 'disabled'}>Gerar homenagem</button>
-        <button class="go sec" id="gprevia" ${ok ? '' : 'disabled'}>Gerar só a prévia</button>
+        <label class="chv" title="Ligada: aparecem os botões 'e enviar' (quando o arquivo fica pronto, vai sozinho para o cliente, com este chat aberto). Desligada: você envia à mão."><input type="checkbox" id="chaveauto" ${autoEnvio ? 'checked' : ''}><i></i><span>Envio automático ao cliente</span></label>
+        <div class="bgrid ${autoEnvio ? 'dois' : ''}">
+          <button class="go" id="gdireto" ${ok ? '' : 'disabled'}>Gerar homenagem</button>
+          ${autoEnvio ? `<button class="go" id="gdiretoenv" ${ok ? '' : 'disabled'}>Gerar homenagem e enviar</button>` : ''}
+          <button class="go sec" id="gprevia" ${ok ? '' : 'disabled'}>Gerar só a prévia</button>
+          ${autoEnvio ? `<button class="go sec" id="gpreviaenv" ${ok ? '' : 'disabled'}>Gerar só a prévia e enviar</button>` : ''}
+        </div>
         <div class="msg ${msg.startsWith('!') ? 'bad' : ''}" id="msg">${esc(msg.replace(/^!/, ''))}</div>
       </div>`;
     ligar();
@@ -754,17 +768,20 @@ const chrome = (() => {
     $('#mais').onclick = () => { mais = !mais; desenhar(); };
     const mic = $('#ajmic'); if (mic) mic.onclick = () => falar(mic, $('#aj'));
     const aj = $('#aj'); if (aj) aj.oninput = () => { ajuste = aj.value; $('#mais').innerHTML = rotuloMais(); };
-    $('#gdireto').onclick = () => enviar(true);
-    $('#gprevia').onclick = () => enviar(false);
+    $('#gdireto').onclick = () => enviar(true, false);
+    $('#gprevia').onclick = () => enviar(false, false);
+    const ge = $('#gdiretoenv'); if (ge) ge.onclick = () => enviar(true, true);
+    const gp = $('#gpreviaenv'); if (gp) gp.onclick = () => enviar(false, true);
+    $('#chaveauto').onchange = e => { autoEnvio = e.target.checked; try { chrome.storage.local.set({ autoEnvio }); } catch (x) {} desenhar(); };
   }
 
-  async function enviar(direto) {
-    $('#gdireto').disabled = true; $('#gprevia').disabled = true;
+  async function enviar(direto, auto) {
+    $('#corpo').querySelectorAll('.bgrid .go').forEach(b => { b.disabled = true; });
     $('#msg').className = 'msg'; $('#msg').textContent = 'Enviando ao Estúdio…';
     let r;
     const ped = pedido(direto);
     try { r = await chrome.runtime.sendMessage({ tipo: 'gerar', pedido: ped }); } catch (e) { r = { erro: String(e) }; }
-    if (r && r.ok) { try { chrome.storage.local.set({ ['ped_' + r.id]: ped }); } catch (e) {} limparRascunho(chatAtual().id); }
+    if (r && r.ok) { try { chrome.storage.local.set({ ['ped_' + r.id]: ped }); if (auto) chrome.storage.local.set({ ['auto_' + r.id]: direto ? 'video' : 'previa' }); } catch (e) {} limparRascunho(chatAtual().id); }
     if (!r || !r.ok) {
       msg = '!' + ((r && r.erro) || 'Não achei o Estúdio. Abra o aplicativo e confira a porta no ícone da extensão.');
       return desenhar();
@@ -830,6 +847,10 @@ const chrome = (() => {
   const vigiar = (ch, id) => { vigia.set(ch, id); delete avisos[ch]; try { chrome.storage.local.remove('aviso_' + ch); } catch (e) {} };
   const limparAviso = ch => { if (avisos[ch]) { delete avisos[ch]; try { chrome.storage.local.remove('aviso_' + ch); } catch (e) {} } };
   (async function () {
+    try {   // a chave do envio automático (padrão: ligada)
+      autoEnvio = (await chrome.storage.local.get({ autoEnvio: true })).autoEnvio !== false;
+      if ($('#gdireto')) desenhar();
+    } catch (e) {}
     try {
       const todo = await chrome.storage.local.get(null);
       for (const [k, v] of Object.entries(todo)) {
@@ -837,6 +858,7 @@ const chrome = (() => {
         if (k.startsWith('aviso_')) avisos[k.slice(6)] = v;
       }
     } catch (e) {}
+    const tentando = new Set();
     setInterval(async () => {
       for (const [ch, id] of [...vigia]) {
         let r; try { r = await chrome.runtime.sendMessage({ tipo: 'status', id }); } catch (e) { continue; }
@@ -848,9 +870,22 @@ const chrome = (() => {
         const vendo = $('#veu').classList.contains('on') && chatAtual().id === ch;
         let novo = videoPronto ? 'video' : pronta ? 'previa' : '';
         if (novo && !vendo && avisos[ch] !== novo && !(avisos[ch] === 'video')) { avisos[ch] = novo; try { chrome.storage.local.set({ ['aviso_' + ch]: novo }); } catch (e) {} }
+        // envio automático ("... e enviar"): quando o arquivo escolhido fica pronto e o chat está aberto, vai sozinho para o cliente
+        let alvo = ''; try { alvo = (await chrome.storage.local.get('auto_' + id))['auto_' + id] || ''; } catch (e) {}
+        if (alvo) {
+          const pronto = alvo === 'video' ? videoPronto : pronta;
+          if (erro) { try { chrome.storage.local.remove('auto_' + id); } catch (e) {} vigia.delete(ch); continue; }
+          if (pronto && chatAtual().id === ch && !tentando.has(id)) {
+            tentando.add(id);
+            try { chrome.storage.local.remove('auto_' + id); } catch (e) {}   // uma tentativa só: se falhar, o botão Enviar da tela continua valendo (nada é enviado duas vezes)
+            if (!(d.entregas && d.entregas[alvo])) { entregasAtual = d.entregas || {}; try { await devolver(id, ch, alvo, false, true); } catch (e) {} }
+            tentando.delete(id); vigia.delete(ch);
+          }
+          continue;   // com envio automático pendente, continua vigiando até o chat abrir
+        }
         if (videoPronto || erro || (d.direto === false && pronta)) vigia.delete(ch);
       }
-    }, 8000);
+    }, 4000);
   })();
 
   async function pegarArquivo(id, tipo) {
@@ -914,7 +949,7 @@ const chrome = (() => {
     return 'nao';
   }
 
-  async function devolver(id, chatId, tipo, soBaixar) {
+  async function devolver(id, chatId, tipo, soBaixar, forcar) {
     const nomeTipo = tipo === 'video' ? 'o vídeo' : 'a prévia';
     try {
       if (!soBaixar && chatAtual().id !== chatId) { msgEnvio = '!Este pedido é do chat #' + chatId + '. Abra esse chat para colocar ' + nomeTipo + ' nele.'; return; }
@@ -924,7 +959,7 @@ const chrome = (() => {
       if (entregasAtual[tipo] && !window.confirm('Já enviei ' + nomeTipo + ' a este chat às ' + entregasAtual[tipo].slice(-8) + '. Enviar de novo?')) { msgEnvio = 'Cancelado: nada foi enviado.'; return; }
       const como = anexar(file);
       if (!como) { baixarArquivo(file); msgEnvio = '!Não achei onde anexar nesta tela da Leona. Baixei o arquivo: anexe pelo clipe.'; return; }
-      if (!autoEnviar) {
+      if (!autoEnviar && !forcar) {
         chrome.runtime.sendMessage({ tipo: 'entregue', id, arquivo: tipo });
         msgEnvio = 'Coloquei ' + nomeTipo + ' no chat. Confira e aperte enviar.'; return;
       }
@@ -977,6 +1012,7 @@ const chrome = (() => {
       <div class="rodape"><div id="erro"></div><div class="dicac" id="dicaenv"></div><div id="msgenv" class="aviso"></div></div></div>`;
     $('#novo').onclick = () => { clearInterval(relogio); abrir(true); };
     limparAviso(chatId);
+    let autoDe = ''; chrome.storage.local.get('auto_' + id).then(o => { autoDe = o['auto_' + id] || ''; }).catch(() => {});
     (async () => {   // lista das homenagens deste chat, com o nome de cada uma
       const h = await lerHist(chatId), sel = $('#d-hist'); if (!sel || h.length < 2) return;
       const hh = t => { const d = new Date(t); return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
@@ -1073,7 +1109,7 @@ const chrome = (() => {
         }
         if (!direto) { $('#e-video').disabled = true; $('#f-video').disabled = true; $('#b-video').disabled = true; }
         $('#erro').innerHTML = erro ? `<div class="erro">${esc(erro)}</div>` : '';
-        $('#dicaenv').textContent = (pronta || videoPronto) ? (autoEnviar ? 'Ao clicar em Enviar, o arquivo vai para o chat de origem e a extensão aperta Enviar sozinha.' : 'O arquivo é colocado no chat de origem; você confere e aperta enviar.') : '';
+        $('#dicaenv').textContent = (autoDe && !ent[autoDe]) ? 'Envio automático ligado: ' + (autoDe === 'video' ? 'o vídeo' : 'a prévia') + ' vai ao cliente sozinho quando ficar pronto' + (chatAtual().id === chatId ? '.' : ' (abra o chat #' + chatId + ' para enviar).') : (pronta || videoPronto) ? (autoEnviar ? 'Ao clicar em Enviar, o arquivo vai para o chat de origem e a extensão aperta Enviar sozinha.' : 'O arquivo é colocado no chat de origem; você confere e aperta enviar.') : '';
         mostrarMsg();
       };
       ultimaPintura();
