@@ -2,7 +2,7 @@
 // @name         Estúdio Eternize (completo)
 // @namespace    eternize.estudio.completo
 // @icon         https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/icone.png
-// @version      0.17.16
+// @version      0.17.17
 // @description  Mostra as fotos que o cliente enviou no chat da Leona, separa por pessoa e manda para o Estúdio Eternize.
 // @updateURL    https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
 // @downloadURL  https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
@@ -22,10 +22,10 @@
 // @connect      raw.githubusercontent.com
 // ==/UserScript==
 
-// Estúdio Eternize — controle remoto, versão 0.17.16 (gerado por leona/gerar.py)
+// Estúdio Eternize — controle remoto, versão 0.17.17 (gerado por leona/gerar.py)
 (function () {
 'use strict';
-const VERSAO_SCRIPT = '0.17.16';
+const VERSAO_SCRIPT = '0.17.17';
 // Faz o código da extensão (content.js) rodar no Tampermonkey: cria um "chrome" de mentira com as mesmas funções
 // (guardar dados, falar com o Estúdio deste computador). O código do menu é o MESMO da extensão.
 const chrome = (() => {
@@ -1124,6 +1124,42 @@ const chrome = (() => {
     }; });
     c.querySelectorAll('[data-mot]').forEach(b => { b.onclick = () => enviarAval(vid, 'erro', b.dataset.mot, servidor); });
   }
+  let ultimoVideo = { id: '', aval: '', perguntar: true };
+  // Antes de enviar o vídeo ao cliente: "O vídeo ficou bom?". Deu certo envia; Deu erro marca o motivo e NÃO envia (a menos que o editor escolha "Enviar mesmo assim").
+  function confirmarVideo() {
+    return new Promise(resolve => {
+      const v = ultimoVideo; if (!v.id || !v.perguntar) return resolve(true);
+      const atual = (v.id in avalLocal) ? avalLocal[v.id] : v.aval;
+      if (atual === 'certo') return resolve(true);
+      const d = document.createElement('div'); d.className = 'mpd';
+      const fim = ok => { d.remove(); resolve(ok); };
+      const marcar = async (res, mot) => {
+        const r = await chrome.runtime.sendMessage({ tipo: 'avaliar', id: v.id, resultado: res, motivo: mot || '' }).catch(() => null);
+        if (!(r && r.ok)) { const m = d.querySelector('#cvmsg'); m.textContent = 'Não consegui marcar agora. ' + ((r && r.erro) || 'Tente de novo.'); m.className = 'msg bad'; return false; }
+        avalLocal[v.id] = res; avalAberto = ''; pintarAval(v.id, res); return true;
+      };
+      const telaPergunta = () => {
+        d.innerHTML = `<div class="mpc"><h3>O vídeo ficou bom?</h3><p>${atual === 'erro' ? 'Você marcou que este vídeo deu erro.' : 'Confira o vídeo antes de enviar ao cliente.'} Sua resposta ajuda a achar qual prompt funciona.</p>
+          <div class="lin"><button class="go" id="cvok">Deu certo, enviar</button><button class="go sec" id="cverr">Deu erro</button><button class="go sec" id="cvfecha">Cancelar</button></div><div class="msg" id="cvmsg"></div></div>`;
+        d.querySelector('#cvfecha').onclick = () => fim(false);
+        d.querySelector('#cvok').onclick = async () => { if (await marcar('certo')) fim(true); };
+        d.querySelector('#cverr').onclick = telaMotivo;
+      };
+      const telaMotivo = () => {
+        d.innerHTML = `<div class="mpc"><h3>O que deu errado?</h3><div class="avm">${MOTIVOS_AVAL.map(m => `<button class="avb" data-mot="${esc(m)}">${esc(m)}</button>`).join('')}</div><div class="lin"><button class="go sec" id="cvvolta">Voltar</button></div><div class="msg" id="cvmsg"></div></div>`;
+        d.querySelector('#cvvolta').onclick = telaPergunta;
+        d.querySelectorAll('[data-mot]').forEach(b => { b.onclick = async () => { if (await marcar('erro', b.dataset.mot)) telaErro(); }; });
+      };
+      const telaErro = () => {
+        d.innerHTML = `<div class="mpc"><h3>Marcado como erro</h3><p>O vídeo NÃO foi enviado ao cliente. Use Refazer para gerar outro.</p>
+          <div class="lin"><button class="go" id="cvfecha2">Fechar</button><button class="go sec" id="cvmesmo">Enviar mesmo assim</button></div></div>`;
+        d.querySelector('#cvfecha2').onclick = () => fim(false);
+        d.querySelector('#cvmesmo').onclick = () => fim(true);
+      };
+      ($('#veu') || document.body).appendChild(d);
+      telaPergunta();
+    });
+  }
   async function enviarAval(vid, resultado, motivo, servidor) {
     const r = await chrome.runtime.sendMessage({ tipo: 'avaliar', id: vid, resultado, motivo }).catch(() => null);
     if (r && r.ok) { avalLocal[vid] = resultado; avalAberto = ''; } else { msg = '!Não consegui marcar agora. ' + ((r && r.erro) || 'Tente de novo.'); }
@@ -1256,7 +1292,8 @@ const chrome = (() => {
         // envio automático ("... e enviar"): quando o arquivo escolhido fica pronto e o chat está aberto, vai sozinho para o cliente
         let alvo = ''; try { alvo = (await chrome.storage.local.get('auto_' + id))['auto_' + id] || ''; } catch (e) {}
         if (alvo) {
-          const pronto = alvo === 'video' ? videoPronto : pronta;
+          const vidAv = d.video && d.video.id ? ((d.video.id in avalLocal) ? avalLocal[d.video.id] : (d.video.aval || '')) : '';
+          const pronto = alvo === 'video' ? (videoPronto && (vidAv === 'certo' || d.perguntar_antes === false)) : pronta;   // o vídeo só vai sozinho depois que o editor marca "Deu certo"
           if (erro) { try { chrome.storage.local.remove('auto_' + id); } catch (e) {} vigia.delete(ch); continue; }
           if (pronto && !tentando.has(id)) {   // não precisa do chat aberto: o envio vai direto pela API da Leona
             tentando.add(id);
@@ -1623,11 +1660,11 @@ const chrome = (() => {
           $('#e-video').disabled = !videoPronto; $('#f-video').disabled = !(videoPronto && uv); $('#b-video').disabled = !videoPronto;
           $('#e-video').textContent = ent.video ? 'Enviar o vídeo de novo' : 'Enviar vídeo ao cliente';
           $('#s-video').className = 'stt' + (ent.video ? ' ok' : ''); $('#s-video').innerHTML = (ent.video ? IC.check + ' enviado às ' + esc(hora(ent.video)) : '') + (videoPronto && d.video && d.video.id ? '<span class="avc" id="avc"></span>' : '');
-          if (videoPronto && d.video && d.video.id) pintarAval(d.video.id, d.video.aval || '');
+          if (videoPronto && d.video && d.video.id) { ultimoVideo = { id: d.video.id, aval: d.video.aval || '', perguntar: d.perguntar_antes !== false }; pintarAval(d.video.id, d.video.aval || ''); }
         }
         if (!direto) { $('#e-video').disabled = true; $('#f-video').disabled = true; $('#b-video').disabled = true; }
         $('#erro').innerHTML = erro ? `<div class="erro">${esc(erro)}</div>` : '';
-        $('#dicaenv').textContent = (autoDe && !ent[autoDe]) ? 'Envio automático ligado: ' + (autoDe === 'video' ? 'o vídeo' : 'a prévia') + ' vai ao cliente sozinho quando ficar pronto' + '.' : (pronta || videoPronto) ? (autoEnviar ? 'Ao clicar em Enviar, o arquivo vai direto para o chat de origem, mesmo que você esteja em outro.' : 'O arquivo é colocado no chat de origem; você confere e aperta enviar.') : '';
+        $('#dicaenv').textContent = (autoDe && !ent[autoDe]) ? 'Envio automático ligado: ' + (autoDe === 'video' ? 'o vídeo' : 'a prévia') + (autoDe === 'video' && ultimoVideo.perguntar ? ' vai ao cliente depois que você marcar "Deu certo"' : ' vai ao cliente sozinho quando ficar pronta') + '.' : (pronta || videoPronto) ? (autoEnviar ? 'Ao clicar em Enviar, o arquivo vai direto para o chat de origem, mesmo que você esteja em outro.' : 'O arquivo é colocado no chat de origem; você confere e aperta enviar.') : '';
         mostrarMsg();
       };
       ultimaPintura();
@@ -1638,7 +1675,7 @@ const chrome = (() => {
     $('#e-previa').onclick = () => devolver(id, chatId, 'previa', false);
     $('#b-previa').onclick = () => devolver(id, chatId, 'previa', true);
     $('#f-previa').onclick = () => tela(null, '#im-previa');
-    $('#e-video').onclick = () => devolver(id, chatId, 'video', false);
+    $('#e-video').onclick = async () => { if (await confirmarVideo()) devolver(id, chatId, 'video', false); };
     $('#b-video').onclick = () => devolver(id, chatId, 'video', true);
     $('#f-video').onclick = () => tela(null, '#im-video');
     // refazer: manda o mesmo pedido de novo (com o caso escolhido, na foto única), igual aos botões da primeira coluna do Estúdio
