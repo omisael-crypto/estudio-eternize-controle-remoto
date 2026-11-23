@@ -1,7 +1,7 @@
-// Estúdio Eternize — controle remoto, versão 0.17.17 (gerado por leona/gerar.py)
+// Estúdio Eternize — controle remoto, versão 0.17.18 (gerado por leona/gerar.py)
 (function () {
 'use strict';
-const VERSAO_SCRIPT = '0.17.17';
+const VERSAO_SCRIPT = '0.17.18';
 // Faz o código da extensão (content.js) rodar no Tampermonkey: cria um "chrome" de mentira com as mesmas funções
 // (guardar dados, falar com o Estúdio deste computador). O código do menu é o MESMO da extensão.
 const chrome = (() => {
@@ -173,7 +173,7 @@ const chrome = (() => {
 
   const MIN_LADO = 110;           // imagens menores que isso (avatares, ícones) não contam
   const MAX_PESSOAS = 4;
-  let n, pessoas, ativa, fotosSel, mais, ajuste, relogio = null, msg = '';
+  let n, pessoas, ativa, fotosSel, mais, ajuste, relogio = null, msg = '', aniv = false;   // aniv: pedido de ANIVERSÁRIO (caso aniv-1p, 1 pessoa)
   let buscando = false;
   var modoPronta = false, prontaSrc = '', quemSobe = '';   // "prévia já enviada": usa uma imagem que NÓS mandamos no chat e gera só o vídeo dela
   var marcas = new Map(), marcasChat = '';   // foto (endereço) -> ['P1', 'P3']: o que já foi marcado neste chat
@@ -502,7 +502,7 @@ const chrome = (() => {
     .mpc h3{margin:0;font-size:15px}.mpc p{margin:0;font-size:12.5px;color:#9aa0b2}
     .mpc textarea{width:100%;min-height:260px;resize:vertical;background:#0f1015;color:#e6e8f0;border:1px solid #2a2c35;border-radius:8px;padding:10px;font:12.5px/1.45 ui-monospace,Consolas,monospace;box-sizing:border-box}
     .mpc .lin{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.mpc .lin .qtd{margin-left:auto;font-size:12px;color:#9aa0b2}.mpc .lin .qtd.bad{color:#f2686a}
-    .avc{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:auto}
+    .avc{display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex:0 0 100%;margin:6px 0 0;color:#9aa0b2}
     .avb{font:inherit;font-size:12px;padding:2px 9px;border-radius:7px;border:1px solid #2a2c35;background:#1d1f27;color:#c9cdda;cursor:pointer}
     .avb.ok{border-color:#22d366;color:#22d366}.avb.bad{border-color:#f2686a;color:#f2686a}.avb:hover{background:#262935}
     .avm{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px;width:100%}
@@ -696,6 +696,7 @@ const chrome = (() => {
   const letras = () => pessoas.map(p => p.vivo ? 'v' : 'f').join('');
   function casoDe() {
     const l = letras();
+    if (aniv && n === 1) return 'aniv-1p';
     if (n === 1) return '1p';
     if (emJuntos()) return jq;
     if (n === 2) return ({ ff: '2f', fv: '1f2v', vf: '1v2f' })[l] || null;
@@ -946,7 +947,7 @@ const chrome = (() => {
         ${emJuntos() ? `<div class="jq">${['1f2v', '1v2f', '2f'].map(q => BT('', 'data-jq="' + q + '"', NOMEJQ[q], jq === q)).join('')}</div>` : ''}
         ${n >= 2 && !emJuntos() ? `<div class="par" data-est="${i}">${BT('', 'data-v="0"', IC.estrela + ' Faleceu', !p.vivo)}${BT('', 'data-v="1"', IC.coracao + ' Está viva', p.vivo)}</div>` : ''}
         ${n >= 2 && n <= 4 && !emJuntos() ? `<div class="par ${todasFalecidas() ? '' : 'escondido'}" data-papel="${i}">${BT('', 'data-pp="espera"', 'No céu', p.papel === 'espera')}${BT('', 'data-pp="chega"', 'Chegou', p.papel === 'chega')}</div>` : ''}
-        ${mais && !emJuntos() ? `<div class="trio">${BT('sc', 'data-op="animal"', 'Animal', p.animal)}${BT('sc', 'data-op="bebe"', 'Bebê', p.bebe)}${livre ? BT('sc', 'data-op="semcamisa"', 'Sem camisa', p.semcamisa) : ''}</div>
+        ${mais && !emJuntos() ? `<div class="trio">${aniv ? '' : BT('sc', 'data-op="animal"', 'Animal', p.animal) + BT('sc', 'data-op="bebe"', 'Bebê', p.bebe)}${livre ? BT('sc', 'data-op="semcamisa"', 'Sem camisa', p.semcamisa) : ''}</div>
           ${livre ? `<div class="duo">${BT('sc', 'data-op="calca"', 'Calça', p.calca)}${BT('sc', 'data-op="vestido"', 'Vestido', p.vestido)}</div>` : ''}` : ''}
       </div>`;
     }).join('');
@@ -959,7 +960,7 @@ const chrome = (() => {
       <div class="dir" id="dir">
         ${modoPronta ? `<div class="aviso" style="border-color:#4c8dff"><b>Usando uma prévia já enviada:</b> só o vídeo será gerado (sem gastar prévia).${prontaSrc ? '' : ' Escolha a prévia na coluna ao lado.'} <button class="troca" id="tirapronta" style="margin-left:8px;text-transform:none;letter-spacing:0">Cancelar</button><div style="margin-top:8px"><label for="quem">Quem sobe a escada?${n >= 2 ? ' (obrigatório)' : ' (opcional)'}</label><input id="quem" maxlength="200" placeholder="Ex.: a senhora de blusa vermelha, à esquerda" value="${esc(quemSobe)}" style="width:100%"></div></div>` : ''}
         <div class="passo"><b>1</b><span>Quantas pessoas?</span>${n === 2 ? `<button class="troca" id="juntos" aria-pressed="${emJuntos()}" title="As duas pessoas aparecem na mesma foto: cole uma foto só e diga quem faleceu" style="${emJuntos() ? 'background:#4c8dff;color:#fff;border-color:#4c8dff' : ''}">${IC.pessoas} Mesma foto</button>` : ''}</div>
-        <div class="seg">${[1, 2, 3, 4].map(k => `<button data-n="${k}" class="${k === n ? 'on' : ''}">${k} ${k === 1 ? 'pessoa' : 'pessoas'}</button>`).join('')}<button data-n="5" class="mais ${n > 4 ? 'on' : ''}" title="Mais pessoas (5 a 8)" aria-label="Mais pessoas, de 5 a 8" style="flex:0 0 44px">+</button></div>
+        <div class="seg">${(aniv ? [1] : [1, 2, 3, 4]).map(k => `<button data-n="${k}" class="${k === n ? 'on' : ''}">${k} ${k === 1 ? 'pessoa' : 'pessoas'}</button>`).join('')}${aniv ? '' : `<button data-n="5" class="mais ${n > 4 ? 'on' : ''}" title="Mais pessoas (5 a 8)" aria-label="Mais pessoas, de 5 a 8" style="flex:0 0 44px">+</button>`}<button id="aniv" class="${aniv ? 'on' : ''}" aria-pressed="${aniv}" title="Homenagem de ANIVERSÁRIO (1 pessoa): a foto entra numa festa com bolo e sopra as velas" style="flex:0 0 auto;padding:0 12px">🎂 Aniversário</button></div>
         ${n > 4 ? `<div class="seg">${[5, 6, 7, 8].map(k => `<button data-n="${k}" class="${k === n ? 'on' : ''}">${k} pessoas</button>`).join('')}</div>` : ''}
         <div class="passo"><b>2</b><span>${emJuntos() ? 'Cole a foto com as duas e diga quem faleceu' : n >= 2 ? 'Cole as fotos e marque quem faleceu' : 'Cole a foto'}</span>${n >= 2 && n <= 4 && !emJuntos() ? '<button class="troca" id="troca" title="Inverter a ordem (esquerda e direita)">' + IC.trocar + ' Trocar</button>' : ''}</div>
         <div class="grade ${n === 1 || emJuntos() ? 'um' : ''}${modoPronta ? ' pr' : ''}">${cartoes}</div>
@@ -971,7 +972,7 @@ const chrome = (() => {
         <label class="chv" title="Ligada: só aparecem os botões 'e enviar' (quando o arquivo fica pronto, vai sozinho para o cliente, mesmo que você já esteja em outro chat). Desligada: só aparecem os botões comuns e você envia à mão."><input type="checkbox" id="chaveauto" ${autoEnvio ? 'checked' : ''}><i></i><span>Envio automático ao cliente</span></label>
         ${casoDe() && !modoPronta ? '<button class="maisop" id="meuprompt" title="Seu texto do vídeo só para você (não muda o padrão dos outros)">Meu prompt</button>' : ''}
         <div class="bgrid">
-          <button class="go" id="gdireto" ${ok ? '' : 'disabled'}>${modoPronta ? (autoEnvio ? 'Gerar só o vídeo e enviar' : 'Gerar só o vídeo') : (autoEnvio ? 'Gerar homenagem e enviar' : 'Gerar homenagem')}</button>
+          <button class="go" id="gdireto" ${ok ? '' : 'disabled'}>${modoPronta ? (autoEnvio ? 'Gerar só o vídeo e enviar' : 'Gerar só o vídeo') : (aniv ? (autoEnvio ? 'Gerar aniversário e enviar' : 'Gerar aniversário') : (autoEnvio ? 'Gerar homenagem e enviar' : 'Gerar homenagem'))}</button>
           ${modoPronta ? '' : `<button class="go sec" id="gprevia" ${ok ? '' : 'disabled'}>${autoEnvio ? 'Gerar só a prévia e enviar' : 'Gerar só a prévia'}</button>`}
         </div>
         <div class="msg ${msg.startsWith('!') ? 'bad' : ''}" id="msg">${esc(msg.replace(/^!/, ''))}</div>
@@ -984,6 +985,7 @@ const chrome = (() => {
   function ligar() {
     const c = $('#corpo');
     c.querySelectorAll('[data-n]').forEach(b => b.onclick = () => { setN(+b.dataset.n); msg = ''; desenhar(); });
+    const ba = $('#aniv'); if (ba) ba.onclick = () => { aniv = !aniv; if (aniv) setN(1); msg = ''; desenhar(); };   // aniversário é sempre 1 pessoa
     c.querySelectorAll('[data-slot]').forEach(e => e.onclick = () => { ativa = +e.dataset.slot; desenhar(); });
     c.querySelectorAll('[data-lim]').forEach(e => e.onclick = ev => { ev.stopPropagation(); const q = pessoas[+e.dataset.lim]; q.foto = null; q.edit = null; q.editada = null; ativa = +e.dataset.lim; desenhar(); });
     c.querySelectorAll('[data-edit]').forEach(e => e.onclick = ev => { ev.stopPropagation(); abrirEditor(+e.dataset.edit); });
@@ -1428,6 +1430,7 @@ const chrome = (() => {
   }
   async function dispararFluxoFinal(id, chatId) {
     const k = 'fluxo_' + id;
+    if (/^aniv-/.test(casosPedido[id] || '')) return '';   // aniversário não dispara o fluxo "Finalização Homenagem" (é de falecidos)
     try {
       if ((await chrome.storage.local.get(k))[k]) return '';
       const c = await chrome.runtime.sendMessage({ tipo: 'leona_config' }).catch(() => null);
@@ -1493,11 +1496,13 @@ const chrome = (() => {
 
   // ---------- andamento: a tela de detalhe do Estúdio, adaptada à extensão ----------
   let cronAtual = null;
+  const casosPedido = {};   // pedido -> caso (o fluxo final da Leona é só de falecidos)
   const previas = {};   // pedido -> { previa, video, orig: [urls] } (buscados uma vez só, para o vídeo não reiniciar)
   const mmss = ms => { const t = Math.max(0, Math.round(ms / 1000)); return String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0'); };
   const legenda = (c, juntos) => {
     if (!c) return '';
     if (c === '1p') return '1 pessoa';
+    if (/^aniv-/.test(c)) return 'Aniversário · 1 pessoa';
     const l = c.includes('-') ? c.split('-')[1] : ({ '2f': 'ff', '1f2v': 'fv', '1v2f': 'vf' })[c];
     if (!l) return c;
     return l.split('').map((x, i) => 'Pessoa ' + (i + 1) + (x === 'f' ? ' faleceu' : ' viva')).join(' · ') + (juntos ? ' · mesma foto' : '');
@@ -1562,7 +1567,7 @@ const chrome = (() => {
         $('#c-orig').innerHTML = '';
         return;
       }
-      dados = d;
+      dados = d; casosPedido[id] = d.caso || '';
       entregasAtual = d.entregas || {};
       const direto = d.direto !== false, ent = d.entregas || {};
       const pronta = !!(d.previa && (d.previa.estado === 'pronto' || d.previa.estado === 'pronta'));
@@ -1682,7 +1687,7 @@ const chrome = (() => {
     for (let i = 0; i < 14; i++) { lembrar(); if (Date.now() - chatDesde >= ESTAVEL_MS) break; await esperar(200); }   // acabou de trocar de contato: espera a Leona terminar de redesenhar
     chatPainel = chatAtual();
     fotosSel = lerFotos();
-    pessoas = []; juntos = false; jq = '2f'; ativa = 0; mais = false; ajuste = ''; msg = ''; msgEnvio = ''; if (ed) fecharEditor();
+    pessoas = []; aniv = false; juntos = false; jq = '2f'; ativa = 0; mais = false; ajuste = ''; msg = ''; msgEnvio = ''; if (ed) fecharEditor();
     setN(1);
     $('#veu').classList.add('on');
     const ch = chatPainel.id;
