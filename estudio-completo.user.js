@@ -2,7 +2,7 @@
 // @name         Estúdio Eternize (completo)
 // @namespace    eternize.estudio.completo
 // @icon         https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/icone.png
-// @version      0.17.7
+// @version      0.17.8
 // @description  Mostra as fotos que o cliente enviou no chat da Leona, separa por pessoa e manda para o Estúdio Eternize.
 // @updateURL    https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
 // @downloadURL  https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
@@ -22,10 +22,10 @@
 // @connect      raw.githubusercontent.com
 // ==/UserScript==
 
-// Estúdio Eternize — controle remoto, versão 0.17.7 (gerado por leona/gerar.py)
+// Estúdio Eternize — controle remoto, versão 0.17.8 (gerado por leona/gerar.py)
 (function () {
 'use strict';
-const VERSAO_SCRIPT = '0.17.7';
+const VERSAO_SCRIPT = '0.17.8';
 // Faz o código da extensão (content.js) rodar no Tampermonkey: cria um "chrome" de mentira com as mesmas funções
 // (guardar dados, falar com o Estúdio deste computador). O código do menu é o MESMO da extensão.
 const chrome = (() => {
@@ -601,7 +601,7 @@ const chrome = (() => {
       : 'desde ' + horaPT(PT.desde);
     P('#acao').textContent = PT.estado === 'trabalhando' ? 'Pausa' : PT.estado === 'inicio' ? 'Iniciar' : 'Voltar';
     P('#acao').disabled = P('#enc').disabled = PT.falhou;
-    P('#enc').style.display = PT.estado === 'trabalhando' ? '' : 'none';
+    P('#enc').style.display = PT.estado === 'trabalhando' || PT.estado === 'pausa' ? '' : 'none';
   }
   async function carregarPonto() {
     let r; try { r = await chrome.runtime.sendMessage({ tipo: 'ponto' }); } catch (e) { r = null; }
@@ -637,7 +637,10 @@ const chrome = (() => {
         caixaPonto.style.cssText = caixa.style.position === 'fixed' ? 'position:fixed;top:14px;right:340px;z-index:2147483000;' : '';
         caixa.before(caixaPonto);
       }
-    } else if (caixaPonto.parentElement) caixaPonto.remove();
+    } else if (caixaPonto.parentElement !== document.body) {   // sem chat aberto o botão do Estúdio some, mas o ponto continua na tela, no mesmo canto
+      caixaPonto.style.cssText = 'position:fixed;top:14px;right:300px;z-index:2147483000;';
+      document.body.appendChild(caixaPonto);
+    }
     if (!pop.parentElement) document.body.appendChild(pop);
   }
   setInterval(() => { if (!document.hidden) carregarPonto(); }, 60000);
