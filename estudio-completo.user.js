@@ -2,7 +2,7 @@
 // @name         Estúdio Eternize (completo)
 // @namespace    eternize.estudio.completo
 // @icon         https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/icone.png
-// @version      0.17.9
+// @version      0.17.10
 // @description  Mostra as fotos que o cliente enviou no chat da Leona, separa por pessoa e manda para o Estúdio Eternize.
 // @updateURL    https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
 // @downloadURL  https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
@@ -22,10 +22,10 @@
 // @connect      raw.githubusercontent.com
 // ==/UserScript==
 
-// Estúdio Eternize — controle remoto, versão 0.17.9 (gerado por leona/gerar.py)
+// Estúdio Eternize — controle remoto, versão 0.17.10 (gerado por leona/gerar.py)
 (function () {
 'use strict';
-const VERSAO_SCRIPT = '0.17.9';
+const VERSAO_SCRIPT = '0.17.10';
 // Faz o código da extensão (content.js) rodar no Tampermonkey: cria um "chrome" de mentira com as mesmas funções
 // (guardar dados, falar com o Estúdio deste computador). O código do menu é o MESMO da extensão.
 const chrome = (() => {
@@ -252,6 +252,7 @@ const chrome = (() => {
   let juntos = false, jq = '2f';   // "Mesma foto": as duas pessoas na mesma foto (só com 2 pessoas)
   const NOMEJQ = { '1f2v': 'A da esquerda faleceu', '1v2f': 'A da direita faleceu', '2f': 'As duas faleceram' };
   const emJuntos = () => juntos && n === 2;
+  let chatPainel = { id: '', nome: '' };   // o contato em que o painel foi aberto: tudo o que o painel faz vale para ELE, mesmo que a Leona mude de chat
 
   const nova = () => ({ vivo: false, foto: null, animal: false, bebe: false, semcamisa: false, calca: false, vestido: false, papel: '', edit: null, editada: null, busy: false });
 
@@ -272,9 +273,16 @@ const chrome = (() => {
   // A Leona só mantém na tela as mensagens perto do ponto onde o chat está rolado. Por isso a extensão LEMBRA
   // as fotos que já viu em cada chat (com um número fixo), e "Buscar fotos antigas" rola o chat até o começo.
   const memoria = new Map();   // chat -> { lista: [{id, src}], por: Map(src -> id) }
-  function lerNaTela() {
+  // NUNCA misturar as fotos de contatos diferentes: cada mensagem pertence ao primeiro chat em que foi vista; quando o Estúdio troca de contato
+  // a Leona ainda mostra por um instante as mensagens do contato anterior, e elas não podem entrar na lista do novo.
+  const donoMsg = new Map();   // id da mensagem -> chat de onde ela veio
+  let chatVisto = '', chatDesde = 0, idsUltimos = new Set();
+  const ESTAVEL_MS = 1500;     // depois de trocar de contato, espera a Leona terminar de redesenhar antes de anotar fotos
+  function lerNaTela(ch, ids) {
     const vistos = new Set(), lista = [];
     document.querySelectorAll('[data-message-id]').forEach(msg => {
+      const mid = msg.getAttribute('data-message-id') || '';
+      if (mid) { if (donoMsg.has(mid) && donoMsg.get(mid) !== ch) return; donoMsg.set(mid, ch); if (ids) ids.add(mid); }   // é de outro contato: ignora
       if (!msg.classList.contains('justify-start')) return;   // mensagem do cliente (as nossas são justify-end)
       msg.querySelectorAll('img').forEach(img => {
         if (img.closest('[role="button"]')) return;           // miniatura da mensagem citada
@@ -290,8 +298,15 @@ const chrome = (() => {
   }
   function lembrar() {
     const ch = chatAtual().id; if (!ch) return;
+    if (ch !== chatVisto) {   // trocou de contato: o que ainda está na tela e foi visto no contato anterior é dele
+      for (const id of idsUltimos) if (chatVisto && !donoMsg.has(id)) donoMsg.set(id, chatVisto);
+      chatVisto = ch; chatDesde = Date.now(); idsUltimos = new Set();
+    }
     let m = memoria.get(ch); if (!m) { m = { lista: [], por: new Map() }; memoria.set(ch, m); }
-    for (const src of lerNaTela()) if (!m.por.has(src)) { const f = { id: m.lista.length + 1, src }; m.lista.push(f); m.por.set(src, f.id); }
+    if (Date.now() - chatDesde < ESTAVEL_MS) return m;   // acabou de trocar de contato: ainda não anota nada
+    const idsAgora = new Set();
+    const novas = lerNaTela(ch, idsAgora); idsUltimos = idsAgora;
+    for (const src of novas) if (!m.por.has(src)) { const f = { id: m.lista.length + 1, src }; m.lista.push(f); m.por.set(src, f.id); }
     return m;
   }
   function lerFotos() {
@@ -697,12 +712,12 @@ const chrome = (() => {
     }
     if (emJuntos()) {
       const p = pessoas[0];
-      return { origem: 'leona', chat: chatAtual(), caso: jq, juntos: true,
+      return { origem: 'leona', chat: chatPainel.id ? chatPainel : chatAtual(), caso: jq, juntos: true,
         pessoas: [{ n: 1, vivo: false, fotos: [fotosSel.find(f => f.id === p.foto).src], ...(p.editada ? { imagem: { tipo: 'image/jpeg', b64: p.editada.b64 } } : {}) }],
         opcoes: { ajuste: ajuste.trim(), direto } };
     }
     return {
-      origem: 'leona', chat: chatAtual(), caso: casoDe(),
+      origem: 'leona', chat: chatPainel.id ? chatPainel : chatAtual(), caso: casoDe(),
       pessoas: pessoas.map((p, i) => ({ n: i + 1, vivo: p.vivo, fotos: [fotosSel.find(f => f.id === p.foto).src], ...(p.editada ? { imagem: { tipo: 'image/jpeg', b64: p.editada.b64 } } : {}) })),
       opcoes: { semcamisa: idx('semcamisa'), calca: idx('calca'), vestido: idx('vestido'), animal: idx('animal'), bebe: idx('bebe'), chegada, ajuste: ajuste.trim(), direto },
     };
@@ -907,7 +922,7 @@ const chrome = (() => {
   const rotuloMais = () => { const k = contaOps(); return (mais ? IC.fecha : IC.abre) + ' Mais opções' + (k ? ` <span class="cnt">${k} ${k > 1 ? 'ligadas' : 'ligada'}</span>` : ''); };
 
   function desenhar() {
-    const chat = chatAtual();
+    const chat = chatPainel.id ? chatPainel : chatAtual();
     $('#cli').textContent = 'Cliente: ' + (chat.nome || '(nome não achado)') + ' · #' + (chat.id || '?') + ' (vem sozinho da Leona)';
     const usadas = pessoas.map(p => p.foto).filter(Boolean);
     const nOps = contaOps();
@@ -1031,18 +1046,19 @@ const chrome = (() => {
     } else pintarBusca();
   }
   async function enviar(direto, auto) {
+    if (chatPainel.id && chatAtual().id && chatAtual().id !== chatPainel.id) { msg = '!Você mudou de contato na Leona. Para não misturar as fotos, abra o Estúdio de novo no contato certo (#' + chatPainel.id + ').'; return desenhar(); }
     $('#corpo').querySelectorAll('.bgrid .go').forEach(b => { b.disabled = true; });
     $('#msg').className = 'msg'; $('#msg').textContent = 'Enviando ao Estúdio…';
     let r;
     const ped = pedido(direto);
     try { r = await chrome.runtime.sendMessage({ tipo: 'gerar', pedido: ped }); } catch (e) { r = { erro: String(e) }; }
-    if (r && r.ok) { try { chrome.storage.local.set({ ['ped_' + r.id]: ped }); if (auto) chrome.storage.local.set({ ['auto_' + r.id]: direto ? 'video' : 'previa' }); } catch (e) {} limparRascunho(chatAtual().id); }
+    if (r && r.ok) { try { chrome.storage.local.set({ ['ped_' + r.id]: ped }); if (auto) chrome.storage.local.set({ ['auto_' + r.id]: direto ? 'video' : 'previa' }); } catch (e) {} limparRascunho(chatPainel.id || chatAtual().id); }
     if (!r || !r.ok) {
       msg = '!' + ((r && r.erro) || 'Não achei o Estúdio. Abra o aplicativo e confira a porta no ícone da extensão.');
       return desenhar();
     }
     msg = '';
-    const ch = chatAtual().id;
+    const ch = chatPainel.id || chatAtual().id;
     guardar(ch, r.id);
     acompanhar(r.id, ch);
   }
@@ -1054,7 +1070,7 @@ const chrome = (() => {
   function limparRascunho(ch) { marcas.clear(); marcasChat = ''; clearTimeout(tRasc); rascunho = null; try { chrome.storage.local.remove(chaveRasc(ch)); } catch (e) {} }
   function agendarRascunho() {
     if (!$('#veu').classList.contains('on') || !$('#gdireto')) return;   // só quando o menu está na tela (não no andamento)
-    const ch = chatAtual().id; if (!ch) return;
+    const ch = chatPainel.id || chatAtual().id; if (!ch) return;
     clearTimeout(tRasc);
     tRasc = setTimeout(() => {
       const algo = pessoas.some(p => p.foto || p.editada || p.animal || p.bebe || p.semcamisa || p.calca || p.vestido || p.papel) || ajuste.trim() || n > 1;
@@ -1535,11 +1551,13 @@ const chrome = (() => {
 
   async function abrir(novo) {
     clearInterval(relogio);
+    for (let i = 0; i < 14; i++) { lembrar(); if (Date.now() - chatDesde >= ESTAVEL_MS) break; await esperar(200); }   // acabou de trocar de contato: espera a Leona terminar de redesenhar
+    chatPainel = chatAtual();
     fotosSel = lerFotos();
     pessoas = []; juntos = false; jq = '2f'; ativa = 0; mais = false; ajuste = ''; msg = ''; msgEnvio = ''; if (ed) fecharEditor();
     setN(1);
     $('#veu').classList.add('on');
-    const ch = chatAtual().id;
+    const ch = chatPainel.id;
     limparAviso(ch);
     if (novo !== true && ch) {   // ja tem homenagem pedida deste chat: mostra o andamento (e os botoes de enviar)
       try {
@@ -1678,6 +1696,12 @@ const chrome = (() => {
     alca.addEventListener('dblclick', () => { aplicar(0); try { chrome.storage.local.set({ largPainel: 0 }); } catch (x) {} });
   })();
   console.log('[Estúdio Eternize] extensão ativa nesta aba');
+  let trocas = 0;
+  setInterval(() => {   // o painel é de UM contato: se a Leona mudar de chat com ele aberto, fecha (o rascunho já ficou guardado no contato certo)
+    if (!$('#veu').classList.contains('on') || !chatPainel.id) { trocas = 0; return; }
+    const atual = chatAtual().id;
+    if (atual && atual !== chatPainel.id) { if (++trocas >= 2) { trocas = 0; $('#veu').classList.remove('on'); toast('Você mudou de contato: fechei o painel para não misturar as fotos. Abra o Estúdio de novo no contato certo.'); } } else trocas = 0;
+  }, 600);
   $('#fechar').onclick = () => $('#veu').classList.remove('on');
   // clicar fora do painel (na área escura) fecha
   $('#veu').addEventListener('mousedown', e => { if (e.target === $('#veu')) $('#veu').classList.remove('on'); });
