@@ -907,6 +907,7 @@ const chrome = (() => {
       </div>`;
     }).join('');
 
+    const rolEsq = ($('#corpo .esq') || {}).scrollTop || 0, rolDir = ($('#corpo .dir') || {}).scrollTop || 0;   // redesenhar não pode levar as duas colunas de volta ao topo
     $('#corpo').innerHTML = `
       <div class="esq"><h5>Fotos que o cliente enviou (${fotosSel.length}) — clique para colocar na pessoa marcada <button class="troca ${buscando ? 'buscando' : ''}" id="antigas" style="margin-left:10px;text-transform:none;letter-spacing:0">${rotuloBusca()}</button></h5>
         <div class="fotos">${fotosSel.map(f => `<div class="foto" data-f="${f.id}"><img src="${esc(f.src)}">${uso(f.id)}</div>`).join('') || '<div class="vazio">Nenhuma foto achada neste chat.</div>'}</div></div>
@@ -928,6 +929,7 @@ const chrome = (() => {
         </div>
         <div class="msg ${msg.startsWith('!') ? 'bad' : ''}" id="msg">${esc(msg.replace(/^!/, ''))}</div>
       </div>`;
+    { const e = $('#corpo .esq'), d = $('#corpo .dir'); if (e) e.scrollTop = rolEsq; if (d) d.scrollTop = rolDir; }
     ligar();
     agendarRascunho();
   }
