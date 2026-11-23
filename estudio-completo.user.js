@@ -2,7 +2,7 @@
 // @name         Estúdio Eternize (completo)
 // @namespace    eternize.estudio.completo
 // @icon         https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/icone.png
-// @version      0.17.15
+// @version      0.17.16
 // @description  Mostra as fotos que o cliente enviou no chat da Leona, separa por pessoa e manda para o Estúdio Eternize.
 // @updateURL    https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
 // @downloadURL  https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
@@ -22,10 +22,10 @@
 // @connect      raw.githubusercontent.com
 // ==/UserScript==
 
-// Estúdio Eternize — controle remoto, versão 0.17.15 (gerado por leona/gerar.py)
+// Estúdio Eternize — controle remoto, versão 0.17.16 (gerado por leona/gerar.py)
 (function () {
 'use strict';
-const VERSAO_SCRIPT = '0.17.15';
+const VERSAO_SCRIPT = '0.17.16';
 // Faz o código da extensão (content.js) rodar no Tampermonkey: cria um "chrome" de mentira com as mesmas funções
 // (guardar dados, falar com o Estúdio deste computador). O código do menu é o MESMO da extensão.
 const chrome = (() => {
@@ -117,6 +117,9 @@ const chrome = (() => {
       if (msg.tipo === 'leona_config') { const r = await estudio('/api/leona-config'); return { ok: r.status === 200, dados: r.json }; }
       if (msg.tipo === 'alerta_pegar') { const r = await estudio('/api/alerta/pegar'); return { ok: r.status === 200, dados: r.json }; }
       if (msg.tipo === 'alerta_enviado') { const r = await estudio('/api/alerta/enviado', { method: 'POST', body: JSON.stringify({ id: msg.id, ok: !!msg.ok }) }); return { ok: r.status === 200 }; }
+      if (msg.tipo === 'meu_prompt_get') { const r = await estudio('/api/meu-prompt?caso=' + encodeURIComponent(String(msg.caso || ''))); return ({ ok: r.status === 200, dados: r.json, erro: (r.json && r.json.erro) || '' }); }
+      if (msg.tipo === 'meu_prompt_set') { const r = await estudio('/api/meu-prompt', { method: 'POST', body: JSON.stringify({ caso: msg.caso, texto: msg.texto }) }); return ({ ok: r.status === 200, dados: r.json, erro: (r.json && r.json.erro) || '' }); }
+      if (msg.tipo === 'avaliar') { const r = await estudio('/api/avaliar', { method: 'POST', body: JSON.stringify({ id: msg.id, resultado: msg.resultado, motivo: msg.motivo || '' }) }); return ({ ok: r.status === 200, erro: (r.json && r.json.erro) || '' }); }
       if (msg.tipo === 'repetir') { const r = await estudio('/api/leona/repetir', { method: 'POST', body: JSON.stringify({ id: msg.id, cancelar: !!msg.cancelar }) }); return { ok: r.status === 200, erro: (r.json && r.json.erro) || '' }; }
       if (msg.tipo === 'entregue') { const r = await estudio('/api/leona/entregue', { method: 'POST', body: JSON.stringify({ id: msg.id, tipo: msg.arquivo }) }); return { ok: r.status === 200 }; }
       return { ok: false, erro: 'Mensagem desconhecida.' };
@@ -518,6 +521,16 @@ const chrome = (() => {
     .jqs{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid #2a2a31;border-radius:8px;overflow:hidden}
     .jqs button{border:0;border-right:1px solid #2a2a31;background:#16161a;color:#9a9aa6;padding:10px 4px;font-size:.78rem;cursor:pointer}
     .jqs button:last-child{border-right:0}.jqs button.on{background:#4c8dff;color:#fff;font-weight:700}
+    .mpd{position:fixed;inset:0;z-index:2147483600;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px}
+    .mpc{background:#17181f;border:1px solid #2a2c35;border-radius:12px;padding:16px;width:min(560px,100%);max-height:92vh;display:flex;flex-direction:column;gap:10px;color:#e6e8f0}
+    .mpc h3{margin:0;font-size:15px}.mpc p{margin:0;font-size:12.5px;color:#9aa0b2}
+    .mpc textarea{width:100%;min-height:260px;resize:vertical;background:#0f1015;color:#e6e8f0;border:1px solid #2a2c35;border-radius:8px;padding:10px;font:12.5px/1.45 ui-monospace,Consolas,monospace;box-sizing:border-box}
+    .mpc .lin{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.mpc .lin .qtd{margin-left:auto;font-size:12px;color:#9aa0b2}.mpc .lin .qtd.bad{color:#f2686a}
+    .avc{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:auto}
+    .avb{font:inherit;font-size:12px;padding:2px 9px;border-radius:7px;border:1px solid #2a2c35;background:#1d1f27;color:#c9cdda;cursor:pointer}
+    .avb.ok{border-color:#22d366;color:#22d366}.avb.bad{border-color:#f2686a;color:#f2686a}.avb:hover{background:#262935}
+    .avm{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px;width:100%}
+    #s-video{flex-wrap:wrap}
     .stt{font-size:.85rem;color:#8e8e9a;min-height:20px}.stt.ok{color:#22d366}.stt.bad{color:#f2686a}
     .andam .erro{color:#f2686a;font-size:.85rem}
     @media(max-width:1100px){.cols{grid-template-columns:1fr;grid-template-rows:none;overflow:auto}.col{display:flex;flex-direction:column;gap:10px}.col>*{grid-column:auto!important;grid-row:auto!important}.cartao{min-height:360px}}
@@ -980,6 +993,7 @@ const chrome = (() => {
         <div class="passo" style="margin-top:14px"><b>3</b><span>Gerar</span></div>
         <div class="dicac">${dica()}</div>
         <label class="chv" title="Ligada: só aparecem os botões 'e enviar' (quando o arquivo fica pronto, vai sozinho para o cliente, mesmo que você já esteja em outro chat). Desligada: só aparecem os botões comuns e você envia à mão."><input type="checkbox" id="chaveauto" ${autoEnvio ? 'checked' : ''}><i></i><span>Envio automático ao cliente</span></label>
+        ${casoDe() && !modoPronta ? '<button class="maisop" id="meuprompt" title="Seu texto do vídeo só para você (não muda o padrão dos outros)">Meu prompt</button>' : ''}
         <div class="bgrid">
           <button class="go" id="gdireto" ${ok ? '' : 'disabled'}>${modoPronta ? (autoEnvio ? 'Gerar só o vídeo e enviar' : 'Gerar só o vídeo') : (autoEnvio ? 'Gerar homenagem e enviar' : 'Gerar homenagem')}</button>
           ${modoPronta ? '' : `<button class="go sec" id="gprevia" ${ok ? '' : 'disabled'}>${autoEnvio ? 'Gerar só a prévia e enviar' : 'Gerar só a prévia'}</button>`}
@@ -1028,6 +1042,7 @@ const chrome = (() => {
     if ($('#gprevia')) $('#gprevia').onclick = () => enviar(false, autoEnvio);
     $('#corpo').querySelectorAll('[data-pronta]').forEach(e => e.onclick = () => { const f = ((lembrar() || {}).nossas || []).find(x => x.id === +e.dataset.pronta); if (!f) return; modoPronta = true; prontaSrc = f.src; msg = ''; desenhar(); });
     if ($('#tirapronta')) $('#tirapronta').onclick = () => { modoPronta = false; prontaSrc = ''; quemSobe = ''; desenhar(); };
+    if ($('#meuprompt')) $('#meuprompt').onclick = abrirMeuPrompt;
     if ($('#quem')) $('#quem').oninput = e => { quemSobe = e.target.value; const g = $('#gdireto'); if (g) g.disabled = !(okPronta() && casoDe()); };
     $('#chaveauto').onchange = e => { autoEnvio = e.target.checked; try { chrome.storage.local.set({ autoEnvio }); } catch (x) {} desenhar(); };
   }
@@ -1065,6 +1080,54 @@ const chrome = (() => {
       notaBusca = 'Todas as fotos carregadas'; pintarBusca();
       setTimeout(() => { notaBusca = ''; pintarBusca(); }, 3500);
     } else pintarBusca();
+  }
+  // ---- "Meu prompt": o editor muda o texto do vídeo SÓ para ele (por caso). O padrão dos outros não muda. ----
+  async function abrirMeuPrompt() {
+    const caso = casoDe(); if (!caso) return;
+    let r = null; try { r = await chrome.runtime.sendMessage({ tipo: 'meu_prompt_get', caso }); } catch (e) {}
+    if (!r || !r.ok) { msg = '!Não consegui abrir o seu prompt agora. ' + ((r && r.erro) || ''); return desenhar(); }
+    const padrao = r.dados.padrao || '', meu = r.dados.meu || '';
+    const d = document.createElement('div'); d.className = 'mpd'; d.id = 'mpd';
+    d.innerHTML = `<div class="mpc"><h3>Meu prompt do vídeo · ${esc(caso)}</h3>
+      <p>${meu ? 'Você está usando o SEU texto neste caso. Os outros editores continuam com o padrão.' : 'Hoje este caso usa o texto padrão. Se você mudar e salvar, só os SEUS vídeos deste caso usam o seu texto.'}</p>
+      <textarea id="mptxt" spellcheck="false"></textarea>
+      <div class="lin"><button class="go" id="mpsalva">Salvar só para mim</button><button class="go sec" id="mppadrao">Voltar ao padrão</button><button class="go sec" id="mpfecha">Fechar</button><span class="qtd" id="mpqtd"></span></div>
+      <div class="msg" id="mpmsg"></div></div>`;
+    ($('#veu') || document.body).appendChild(d);
+    const ta = d.querySelector('#mptxt'); ta.value = meu || padrao;
+    const conta = () => { const q = d.querySelector('#mpqtd'); q.textContent = ta.value.length + ' / 4096'; q.className = 'qtd' + (ta.value.length > 4096 ? ' bad' : ''); };
+    ta.oninput = conta; conta();
+    const fala = (t, ruim) => { const m = d.querySelector('#mpmsg'); m.textContent = t; m.className = 'msg' + (ruim ? ' bad' : ''); };
+    d.querySelector('#mpfecha').onclick = () => { d.remove(); desenhar(); };
+    d.querySelector('#mpsalva').onclick = async () => {
+      if (ta.value.length > 4096) return fala('O texto passa de 4096 letras. O Grok recusa mais que isso.', true);
+      const s = await chrome.runtime.sendMessage({ tipo: 'meu_prompt_set', caso, texto: ta.value }).catch(() => null);
+      if (s && s.ok) fala(s.dados && s.dados.meu ? 'Salvo. Os seus próximos vídeos deste caso usam este texto.' : 'Este texto é igual ao padrão: voltou ao padrão.'); else fala((s && s.erro) || 'Não salvou. Tente de novo.', true);
+    };
+    d.querySelector('#mppadrao').onclick = async () => {
+      const s = await chrome.runtime.sendMessage({ tipo: 'meu_prompt_set', caso, texto: '' }).catch(() => null);
+      if (s && s.ok) { ta.value = padrao; conta(); fala('Voltou ao padrão.'); } else fala((s && s.erro) || 'Não salvou. Tente de novo.', true);
+    };
+  }
+  // ---- "Deu certo / Deu erro" no vídeo pronto: ajuda o Misael a achar qual texto funciona ----
+  const MOTIVOS_AVAL = ['Jesus não abraçou', 'Não subiu a escada', 'Rosto mudou', 'Roupa mudou', 'Pessoa errada subiu', 'Outro'];
+  const avalLocal = {}; let avalAberto = '';
+  function pintarAval(vid, servidor) {
+    const c = $('#avc'); if (!c) return;
+    const a = (vid in avalLocal) ? avalLocal[vid] : servidor;
+    if (a) c.innerHTML = `<span class="${a === 'certo' ? 'ok' : 'bad'}" style="font-size:12px">${a === 'certo' ? 'Marcado: deu certo' : 'Marcado: deu erro'}</span><button class="avb" data-av="mudar">mudar</button>`;
+    else c.innerHTML = `<span style="font-size:12px">O vídeo ficou bom?</span><button class="avb ok" data-av="certo">Deu certo</button><button class="avb bad" data-av="erro">Deu erro</button>` + (avalAberto === vid ? `<div class="avm">${MOTIVOS_AVAL.map(m => `<button class="avb" data-mot="${esc(m)}">${esc(m)}</button>`).join('')}</div>` : '');
+    c.querySelectorAll('[data-av]').forEach(b => { b.onclick = () => {
+      if (b.dataset.av === 'mudar') { avalLocal[vid] = ''; avalAberto = ''; return pintarAval(vid, servidor); }
+      if (b.dataset.av === 'erro') { avalAberto = avalAberto === vid ? '' : vid; return pintarAval(vid, servidor); }
+      enviarAval(vid, 'certo', '', servidor);
+    }; });
+    c.querySelectorAll('[data-mot]').forEach(b => { b.onclick = () => enviarAval(vid, 'erro', b.dataset.mot, servidor); });
+  }
+  async function enviarAval(vid, resultado, motivo, servidor) {
+    const r = await chrome.runtime.sendMessage({ tipo: 'avaliar', id: vid, resultado, motivo }).catch(() => null);
+    if (r && r.ok) { avalLocal[vid] = resultado; avalAberto = ''; } else { msg = '!Não consegui marcar agora. ' + ((r && r.erro) || 'Tente de novo.'); }
+    pintarAval(vid, servidor);
   }
   async function enviar(direto, auto) {
     if (chatPainel.id && chatAtual().id && chatAtual().id !== chatPainel.id) { msg = '!Você mudou de contato na Leona. Para não misturar as fotos, abra o Estúdio de novo no contato certo (#' + chatPainel.id + ').'; return desenhar(); }
@@ -1559,7 +1622,8 @@ const chrome = (() => {
               : '<div class="espera">O vídeo começa quando a prévia ficar pronta.</div>'; }
           $('#e-video').disabled = !videoPronto; $('#f-video').disabled = !(videoPronto && uv); $('#b-video').disabled = !videoPronto;
           $('#e-video').textContent = ent.video ? 'Enviar o vídeo de novo' : 'Enviar vídeo ao cliente';
-          $('#s-video').className = 'stt' + (ent.video ? ' ok' : ''); $('#s-video').innerHTML = ent.video ? IC.check + ' enviado ao cliente às ' + esc(hora(ent.video)) : '';
+          $('#s-video').className = 'stt' + (ent.video ? ' ok' : ''); $('#s-video').innerHTML = (ent.video ? IC.check + ' enviado às ' + esc(hora(ent.video)) : '') + (videoPronto && d.video && d.video.id ? '<span class="avc" id="avc"></span>' : '');
+          if (videoPronto && d.video && d.video.id) pintarAval(d.video.id, d.video.aval || '');
         }
         if (!direto) { $('#e-video').disabled = true; $('#f-video').disabled = true; $('#b-video').disabled = true; }
         $('#erro').innerHTML = erro ? `<div class="erro">${esc(erro)}</div>` : '';
