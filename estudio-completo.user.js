@@ -2,7 +2,7 @@
 // @name         Estúdio Eternize (completo)
 // @namespace    eternize.estudio.completo
 // @icon         https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/icone.png
-// @version      0.17.6
+// @version      0.17.7
 // @description  Mostra as fotos que o cliente enviou no chat da Leona, separa por pessoa e manda para o Estúdio Eternize.
 // @updateURL    https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
 // @downloadURL  https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
@@ -22,10 +22,10 @@
 // @connect      raw.githubusercontent.com
 // ==/UserScript==
 
-// Estúdio Eternize — controle remoto, versão 0.17.6 (gerado por leona/gerar.py)
+// Estúdio Eternize — controle remoto, versão 0.17.7 (gerado por leona/gerar.py)
 (function () {
 'use strict';
-const VERSAO_SCRIPT = '0.17.6';
+const VERSAO_SCRIPT = '0.17.7';
 // Faz o código da extensão (content.js) rodar no Tampermonkey: cria um "chrome" de mentira com as mesmas funções
 // (guardar dados, falar com o Estúdio deste computador). O código do menu é o MESMO da extensão.
 const chrome = (() => {
@@ -114,6 +114,7 @@ const chrome = (() => {
         const mime = by[0] === 0xff ? 'image/jpeg' : by[0] === 0x89 ? 'image/png' : by[0] === 0x52 ? 'image/webp' : (cab(r, 'content-type') || 'image/jpeg');
         return { ok: true, mime, b64: b64(r.response) };
       }
+      if (msg.tipo === 'leona_config') { const r = await estudio('/api/leona-config'); return { ok: r.status === 200, dados: r.json }; }
       if (msg.tipo === 'alerta_pegar') { const r = await estudio('/api/alerta/pegar'); return { ok: r.status === 200, dados: r.json }; }
       if (msg.tipo === 'alerta_enviado') { const r = await estudio('/api/alerta/enviado', { method: 'POST', body: JSON.stringify({ id: msg.id, ok: !!msg.ok }) }); return { ok: r.status === 200 }; }
       if (msg.tipo === 'repetir') { const r = await estudio('/api/leona/repetir', { method: 'POST', body: JSON.stringify({ id: msg.id, cancelar: !!msg.cancelar }) }); return { ok: r.status === 200, erro: (r.json && r.json.erro) || '' }; }
@@ -1254,6 +1255,55 @@ const chrome = (() => {
     } finally { alertaOcupado = false; }
   }
   setTimeout(alertasVerificar, 20000); setInterval(alertasVerificar, 60000);
+  // Depois de ENVIAR O VÍDEO ao cliente: dispara na Leona o fluxo de finalização (o mesmo de "Disparar fluxo" no chat). O id do fluxo vem do servidor
+  // (config fluxo_leona_final); sem id, não faz nada. Uma vez só por pedido (um "Enviar de novo" do vídeo não dispara outra vez).
+  // Plano B (e prova visual): clica no botão "Disparar fluxo" do chat aberto e no fluxo pelo NOME, igual ao editor faria. Só vale com o chat aberto.
+  async function dispararFluxoPelaTela(nome) {
+    const norm = t => (t || '').replace(/\s+/g, ' ').trim().toLowerCase(), alvo = norm(nome), dorme = ms => new Promise(r => setTimeout(r, ms));
+    if (!alvo) return false;
+    const clicar = el => { for (const t of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) { const C = t.startsWith('pointer') && typeof PointerEvent === 'function' ? PointerEvent : MouseEvent; el.dispatchEvent(new C(t, { bubbles: true, cancelable: true, button: 0, view: janelaPagina })); } };
+    const campo = () => [...document.querySelectorAll('input')].find(i => /nome do fluxo/i.test(i.getAttribute('placeholder') || '') && i.getBoundingClientRect().height > 0);   // só o campo VISÍVEL (lista aberta)
+    if (!campo()) {
+      const botao = [...document.querySelectorAll('button,[role=button]')].find(b => norm(b.getAttribute('title') || b.getAttribute('aria-label') || '') === 'disparar fluxo');
+      if (!botao) return false;
+      clicar(botao);
+      for (let i = 0; i < 20 && !campo(); i++) await dorme(200);
+    }
+    const inp = campo(); if (!inp) return false;
+    const ri = inp.getBoundingClientRect();
+    let item = null;
+    for (let i = 0; i < 25 && !item; i++) {
+      item = [...document.querySelectorAll('body *')].filter(e => norm(e.textContent) === alvo && e.getBoundingClientRect().top >= ri.bottom - 4 && e.getBoundingClientRect().height > 0)
+        .sort((a, b) => a.querySelectorAll('*').length - b.querySelectorAll('*').length)[0] || null;   // o menor elemento com exatamente esse nome, abaixo do campo de busca
+      if (!item) await dorme(200);
+    }
+    if (!item) return false;
+    clicar(item.closest('button,[role=option],[role=menuitem],li') || item);
+    for (let i = 0; i < 20 && campo(); i++) await dorme(200);   // a lista fecha quando o fluxo é disparado
+    return !campo();
+  }
+  async function dispararFluxoFinal(id, chatId) {
+    const k = 'fluxo_' + id;
+    try {
+      if ((await chrome.storage.local.get(k))[k]) return '';
+      const c = await chrome.runtime.sendMessage({ tipo: 'leona_config' }).catch(() => null);
+      const fluxo = c && c.dados && String(c.dados.fluxo_final || '').replace(/\D/g, ''); if (!fluxo) return '';
+      const nomeFluxo = String((c && c.dados && c.dados.fluxo_nome) || '');
+      const soChat = c && c.dados && String(c.dados.so_chat || '').replace(/\D/g, ''); if (soChat && String(chatId) !== soChat) return '';   // fase de teste: só nesse chat
+      let tk = ''; try { tk = janelaPagina.localStorage.getItem('auth_token') || ''; } catch (e) {}
+      if (!tk) return '';
+      await chrome.storage.local.set({ [k]: Date.now() });
+      const r = await fetch(API_LEONA + '/flows/' + fluxo + '/trigger', { method: 'POST',
+        headers: { Authorization: /^Bearer /i.test(tk) ? tk : 'Bearer ' + tk, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: /^\d+$/.test(String(chatId)) ? Number(chatId) : chatId }) });
+      if (r.ok) return ' Fluxo de finalização disparado.';
+      if (chatAtual().id === String(chatId) && await dispararFluxoPelaTela(nomeFluxo)) return ' Fluxo de finalização disparado (pelo botão do chat).';   // plano B: clica no fluxo na tela
+      try { chrome.storage.local.remove(k); } catch (e) {}   // não disparou: um novo envio pode tentar de novo
+      let t = ''; try { t = (await r.text()).slice(0, 120); } catch (e) {}
+      console.warn('[Estúdio] fluxo de finalização recusado (' + r.status + '): ' + t);
+      return ' (O fluxo de finalização não disparou: ' + r.status + '. Dispare pelo chat.)';
+    } catch (e) { console.warn('[Estúdio] fluxo de finalização:', e); return ''; }
+  }
   async function devolverReal(id, chatId, tipo, soBaixar, forcar) {
     const nomeTipo = tipo === 'video' ? 'o vídeo' : 'a prévia';
     try {
@@ -1263,7 +1313,10 @@ const chrome = (() => {
         try {
           msgEnvio = 'Enviando ' + nomeTipo + ' ao cliente…'; mostrarMsg();
           await enviarPelaApi(chatId, file, tipo);
-          chrome.runtime.sendMessage({ tipo: 'entregue', id, arquivo: tipo }); msgEnvio = 'Enviei ' + nomeTipo + ' ao cliente.'; return;
+          const jaTinha = !!(entregasAtual && entregasAtual[tipo]);
+          chrome.runtime.sendMessage({ tipo: 'entregue', id, arquivo: tipo }); msgEnvio = 'Enviei ' + nomeTipo + ' ao cliente.';
+          if (tipo === 'video' && !jaTinha) { msgEnvio += await dispararFluxoFinal(id, chatId); }
+          return;
         } catch (e) {
           if (chatAtual().id !== chatId) { msgEnvio = '!Não consegui enviar ' + nomeTipo + ' ao chat #' + chatId + ': ' + (e && e.message || e) + ' Abra esse chat e use o botão Enviar.'; return; }
           console.warn('[Estúdio] envio direto falhou, tentando pela tela:', e);   // chat aberto: tenta pelo jeito antigo
@@ -1282,7 +1335,7 @@ const chrome = (() => {
       }
       msgEnvio = 'Anexado. Apertando enviar…'; mostrarMsg();
       const res = await apertarEnviar(chatId, tipo === 'video' ? 25000 : 12000);
-      if (res === 'ok') { chrome.runtime.sendMessage({ tipo: 'entregue', id, arquivo: tipo }); msgEnvio = 'Enviei ' + nomeTipo + ' ao cliente.'; }
+      if (res === 'ok') { const jaTinha = !!(entregasAtual && entregasAtual[tipo]); chrome.runtime.sendMessage({ tipo: 'entregue', id, arquivo: tipo }); msgEnvio = 'Enviei ' + nomeTipo + ' ao cliente.'; if (tipo === 'video' && !jaTinha) msgEnvio += await dispararFluxoFinal(id, chatId); }
       else if (res === 'chat') msgEnvio = '!Você trocou de chat antes de enviar. Nada foi enviado ao cliente errado; volte ao chat #' + chatId + ' e tente de novo.';
       else msgEnvio = '!Anexei ' + nomeTipo + ', mas não achei o botão Enviar. Aperte você.';
     } catch (e) {
