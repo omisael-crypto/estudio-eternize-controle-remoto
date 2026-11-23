@@ -1,7 +1,7 @@
-// Estúdio Eternize — controle remoto, versão 0.17.11 (gerado por leona/gerar.py)
+// Estúdio Eternize — controle remoto, versão 0.17.15 (gerado por leona/gerar.py)
 (function () {
 'use strict';
-const VERSAO_SCRIPT = '0.17.11';
+const VERSAO_SCRIPT = '0.17.15';
 // Faz o código da extensão (content.js) rodar no Tampermonkey: cria um "chrome" de mentira com as mesmas funções
 // (guardar dados, falar com o Estúdio deste computador). O código do menu é o MESMO da extensão.
 const chrome = (() => {
@@ -172,6 +172,7 @@ const chrome = (() => {
   const MAX_PESSOAS = 4;
   let n, pessoas, ativa, fotosSel, mais, ajuste, relogio = null, msg = '';
   let buscando = false;
+  var modoPronta = false, prontaSrc = '', quemSobe = '';   // "prévia já enviada": usa uma imagem que NÓS mandamos no chat e gera só o vídeo dela
   var marcas = new Map(), marcasChat = '';   // foto (endereço) -> ['P1', 'P3']: o que já foi marcado neste chat
   let autoEnvio = true;   // chave "Envio automático ao cliente" (liga/desliga os botões "e enviar")
   const janelaPagina = (typeof unsafeWindow !== 'undefined' && unsafeWindow) || window;
@@ -283,6 +284,14 @@ const chrome = (() => {
     const idsAgora = new Set();
     const novas = lerNaTela(ch, idsAgora); idsUltimos = idsAgora;
     for (const src of novas) if (!m.por.has(src)) { const f = { id: m.lista.length + 1, src }; m.lista.push(f); m.por.set(src, f.id); }
+    m.nossas = m.nossas || [];   // imagens que a nossa equipe / o fluxo mandou (balão à direita): prévias já feitas
+    document.querySelectorAll('[data-message-id].justify-end img').forEach(img => {
+      if (img.closest('[role="button"]') || img.closest('#estudio-leona-raiz')) return;
+      const src = img.currentSrc || img.src || '';
+      if (!/^https:/.test(src) || m.nossas.some(x => x.src === src)) return;
+      if (Math.max(img.naturalWidth || 0, img.getBoundingClientRect().width || 0) < 120) return;
+      m.nossas.push({ id: m.nossas.length + 1, src });
+    });
     return m;
   }
   function lerFotos() {
@@ -418,6 +427,7 @@ const chrome = (() => {
     .chv i::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#9aa0b2;transition:left .15s,background .15s}
     .chv input:checked+i{background:#2f6bd6}.chv input:checked+i::after{left:18px;background:#fff}
     .chv input:focus-visible+i{outline:2px solid #4c8dff;outline-offset:2px}
+    .grade.pr .slot{display:none}.grade.pr .pes{margin:0}
     .bgrid{display:grid;grid-template-columns:1fr;gap:8px}.bgrid.dois{grid-template-columns:1fr 1fr}
     .bgrid .go{margin:0;font-size:14px;padding:13px 8px}
     .jq{display:grid;grid-template-columns:1fr;border:1px solid #2a2c35;border-radius:9px;overflow:hidden}
@@ -680,7 +690,12 @@ const chrome = (() => {
   }
   const todasFalecidas = () => pessoas.every(p => !p.vivo);
   const lista = () => emJuntos() ? pessoas.slice(0, 1) : pessoas;   // com "Mesma foto" só o 1º quadrado conta
+  const okPronta = () => !!prontaSrc && !!casoDe() && (n < 2 || !!quemSobe.trim());
   function pedido(direto) {
+    if (modoPronta) {   // prévia já enviada: uma imagem só; o Estúdio gera só o vídeo (Grok) e o "quem sobe" vai para a IA do roteiro
+      return { origem: 'leona', chat: chatPainel.id ? chatPainel : chatAtual(), caso: casoDe(), pessoas: [{ n: 1, vivo: false, fotos: [prontaSrc] }],
+        opcoes: { pronta: true, quem_sobe: quemSobe.trim(), ajuste: ajuste.trim(), direto: true } };
+    }
     const idx = k => pessoas.map((p, i) => p[k] ? i + 1 : 0).filter(Boolean);
     let chegada = null;
     if (n >= 2 && n <= 4 && todasFalecidas() && pessoas.some(p => p.papel)) {
@@ -902,7 +917,8 @@ const chrome = (() => {
     $('#cli').textContent = 'Cliente: ' + (chat.nome || '(nome não achado)') + ' · #' + (chat.id || '?') + ' (vem sozinho da Leona)';
     const usadas = pessoas.map(p => p.foto).filter(Boolean);
     const nOps = contaOps();
-    const prob = problema(), ok = casoDe() && lista().every(p => p.foto) && !prob;
+    const prob = modoPronta ? (casoDe() ? '' : 'Marque pelo menos uma pessoa que faleceu.') : problema(), ok = modoPronta ? (okPronta() && !prob) : (casoDe() && lista().every(p => p.foto) && !prob);
+    const nossasSel = (lembrar() || {}).nossas || [];
 
     const cartoes = lista().map((p, i) => {
       const f = p.foto && fotosSel.find(x => x.id === p.foto);
@@ -925,22 +941,24 @@ const chrome = (() => {
     const rolEsq = ($('#corpo .esq') || {}).scrollTop || 0, rolDir = ($('#corpo .dir') || {}).scrollTop || 0;   // redesenhar não pode levar as duas colunas de volta ao topo
     $('#corpo').innerHTML = `
       <div class="esq"><h5>Fotos que o cliente enviou (${fotosSel.length}) — clique para colocar na pessoa marcada <button class="troca ${buscando ? 'buscando' : ''}" id="antigas" style="margin-left:10px;text-transform:none;letter-spacing:0">${rotuloBusca()}</button></h5>
-        <div class="fotos">${fotosSel.map(f => `<div class="foto" data-f="${f.id}"><img src="${esc(f.src)}">${uso(f.id)}</div>`).join('') || '<div class="vazio">Nenhuma foto achada neste chat.</div>'}</div></div>
+        <div class="fotos">${fotosSel.map(f => `<div class="foto" data-f="${f.id}"><img src="${esc(f.src)}">${uso(f.id)}</div>`).join('') || '<div class="vazio">Nenhuma foto achada neste chat.</div>'}</div>
+        ${nossasSel.length ? `<h5 style="margin-top:16px">Prévias já enviadas neste chat — clique para gerar só o vídeo dela (${nossasSel.length})</h5><div class="fotos">${nossasSel.map(f => `<div class="foto" data-pronta="${f.id}" style="${modoPronta && prontaSrc === f.src ? 'outline:2px solid #4c8dff' : ''}"><img src="${esc(f.src)}">${modoPronta && prontaSrc === f.src ? '<span class="uso">escolhida</span>' : ''}</div>`).join('')}</div>` : ''}</div>
       <div class="dir" id="dir">
+        ${modoPronta ? `<div class="aviso" style="border-color:#4c8dff"><b>Usando uma prévia já enviada:</b> só o vídeo será gerado (sem gastar prévia).${prontaSrc ? '' : ' Escolha a prévia na coluna ao lado.'} <button class="troca" id="tirapronta" style="margin-left:8px;text-transform:none;letter-spacing:0">Cancelar</button><div style="margin-top:8px"><label for="quem">Quem sobe a escada?${n >= 2 ? ' (obrigatório)' : ' (opcional)'}</label><input id="quem" maxlength="200" placeholder="Ex.: a senhora de blusa vermelha, à esquerda" value="${esc(quemSobe)}" style="width:100%"></div></div>` : ''}
         <div class="passo"><b>1</b><span>Quantas pessoas?</span>${n === 2 ? `<button class="troca" id="juntos" aria-pressed="${emJuntos()}" title="As duas pessoas aparecem na mesma foto: cole uma foto só e diga quem faleceu" style="${emJuntos() ? 'background:#4c8dff;color:#fff;border-color:#4c8dff' : ''}">${IC.pessoas} Mesma foto</button>` : ''}</div>
         <div class="seg">${[1, 2, 3, 4].map(k => `<button data-n="${k}" class="${k === n ? 'on' : ''}">${k} ${k === 1 ? 'pessoa' : 'pessoas'}</button>`).join('')}<button data-n="5" class="mais ${n > 4 ? 'on' : ''}" title="Mais pessoas (5 a 8)" aria-label="Mais pessoas, de 5 a 8" style="flex:0 0 44px">+</button></div>
         ${n > 4 ? `<div class="seg">${[5, 6, 7, 8].map(k => `<button data-n="${k}" class="${k === n ? 'on' : ''}">${k} pessoas</button>`).join('')}</div>` : ''}
         <div class="passo"><b>2</b><span>${emJuntos() ? 'Cole a foto com as duas e diga quem faleceu' : n >= 2 ? 'Cole as fotos e marque quem faleceu' : 'Cole a foto'}</span>${n >= 2 && n <= 4 && !emJuntos() ? '<button class="troca" id="troca" title="Inverter a ordem (esquerda e direita)">' + IC.trocar + ' Trocar</button>' : ''}</div>
-        <div class="grade ${n === 1 || emJuntos() ? 'um' : ''}">${cartoes}</div>
+        <div class="grade ${n === 1 || emJuntos() ? 'um' : ''}${modoPronta ? ' pr' : ''}">${cartoes}</div>
         ${prob ? `<div class="aviso">${esc(prob)}</div>` : ''}
         <button class="maisop" id="mais">${rotuloMais()}</button>
-        ${mais ? `<div class="aj"><label for="aj">Quer mudar algo?</label><div style="display:flex;gap:8px;align-items:center"><input id="aj" maxlength="500" placeholder="Ex.: tirar o copo da mão" value="${esc(ajuste)}" style="flex:1">${REC ? '<button class="micb" id="ajmic" type="button" title="Falar em vez de escrever" aria-label="Falar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>' : ''}</div><div id="micmsg" class="aviso" style="display:none"></div></div>` : ''}
+        ${mais || modoPronta ? `<div class="aj"><label for="aj">${modoPronta ? 'Quer mudar algo no vídeo? (opcional)' : 'Quer mudar algo?'}</label><div style="display:flex;gap:8px;align-items:center"><input id="aj" maxlength="500" placeholder="${modoPronta ? 'Ex.: sem Jesus, ou tirar o copo da mão' : 'Ex.: tirar o copo da mão'}" value="${esc(ajuste)}" style="flex:1">${REC ? '<button class="micb" id="ajmic" type="button" title="Falar em vez de escrever" aria-label="Falar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>' : ''}</div><div id="micmsg" class="aviso" style="display:none"></div></div>` : ''}
         <div class="passo" style="margin-top:14px"><b>3</b><span>Gerar</span></div>
         <div class="dicac">${dica()}</div>
         <label class="chv" title="Ligada: só aparecem os botões 'e enviar' (quando o arquivo fica pronto, vai sozinho para o cliente, mesmo que você já esteja em outro chat). Desligada: só aparecem os botões comuns e você envia à mão."><input type="checkbox" id="chaveauto" ${autoEnvio ? 'checked' : ''}><i></i><span>Envio automático ao cliente</span></label>
         <div class="bgrid">
-          <button class="go" id="gdireto" ${ok ? '' : 'disabled'}>${autoEnvio ? 'Gerar homenagem e enviar' : 'Gerar homenagem'}</button>
-          <button class="go sec" id="gprevia" ${ok ? '' : 'disabled'}>${autoEnvio ? 'Gerar só a prévia e enviar' : 'Gerar só a prévia'}</button>
+          <button class="go" id="gdireto" ${ok ? '' : 'disabled'}>${modoPronta ? (autoEnvio ? 'Gerar só o vídeo e enviar' : 'Gerar só o vídeo') : (autoEnvio ? 'Gerar homenagem e enviar' : 'Gerar homenagem')}</button>
+          ${modoPronta ? '' : `<button class="go sec" id="gprevia" ${ok ? '' : 'disabled'}>${autoEnvio ? 'Gerar só a prévia e enviar' : 'Gerar só a prévia'}</button>`}
         </div>
         <div class="msg ${msg.startsWith('!') ? 'bad' : ''}" id="msg">${esc(msg.replace(/^!/, ''))}</div>
       </div>`;
@@ -983,7 +1001,10 @@ const chrome = (() => {
     const aj = $('#aj'); if (aj) aj.oninput = () => { ajuste = aj.value; $('#mais').innerHTML = rotuloMais(); };
     // chave ligada: só os botões "... e enviar" (o arquivo vai sozinho ao cliente); desligada: só os botões comuns (você envia à mão)
     $('#gdireto').onclick = () => enviar(true, autoEnvio);
-    $('#gprevia').onclick = () => enviar(false, autoEnvio);
+    if ($('#gprevia')) $('#gprevia').onclick = () => enviar(false, autoEnvio);
+    $('#corpo').querySelectorAll('[data-pronta]').forEach(e => e.onclick = () => { const f = ((lembrar() || {}).nossas || []).find(x => x.id === +e.dataset.pronta); if (!f) return; modoPronta = true; prontaSrc = f.src; msg = ''; desenhar(); });
+    if ($('#tirapronta')) $('#tirapronta').onclick = () => { modoPronta = false; prontaSrc = ''; quemSobe = ''; desenhar(); };
+    if ($('#quem')) $('#quem').oninput = e => { quemSobe = e.target.value; const g = $('#gdireto'); if (g) g.disabled = !(okPronta() && casoDe()); };
     $('#chaveauto').onchange = e => { autoEnvio = e.target.checked; try { chrome.storage.local.set({ autoEnvio }); } catch (x) {} desenhar(); };
   }
 
@@ -1027,6 +1048,10 @@ const chrome = (() => {
     $('#msg').className = 'msg'; $('#msg').textContent = 'Enviando ao Estúdio…';
     let r;
     const ped = pedido(direto);
+    if (modoPronta) {   // app antigo não conhece "prévia já enviada" e geraria uma prévia nova (gasta crédito): confere a versão antes
+      let v = 0; try { const pg = await chrome.runtime.sendMessage({ tipo: 'ping' }); const m = /^(\d+)\.(\d+)/.exec((pg && pg.dados && pg.dados.versao) || ''); if (m) v = +m[1] * 1000 + +m[2]; } catch (e) {}
+      if (v < 8071) { msg = '!O aplicativo do Estúdio deste computador ainda é antigo para usar a prévia já enviada. Feche e abra o aplicativo (ele se atualiza sozinho) e tente de novo.'; return desenhar(); }
+    }
     try { r = await chrome.runtime.sendMessage({ tipo: 'gerar', pedido: ped }); } catch (e) { r = { erro: String(e) }; }
     if (r && r.ok) { try { chrome.storage.local.set({ ['ped_' + r.id]: ped }); if (auto) chrome.storage.local.set({ ['auto_' + r.id]: direto ? 'video' : 'previa' }); } catch (e) {} limparRascunho(chatPainel.id || chatAtual().id); }
     if (!r || !r.ok) {
@@ -1043,7 +1068,7 @@ const chrome = (() => {
   let rascunho = null, tRasc = null;
   const chaveRasc = ch => 'rasc_' + ch;
   async function lerRascunho(ch) { try { return (await chrome.storage.local.get(chaveRasc(ch)))[chaveRasc(ch)] || null; } catch (e) { return null; } }
-  function limparRascunho(ch) { marcas.clear(); marcasChat = ''; clearTimeout(tRasc); rascunho = null; try { chrome.storage.local.remove(chaveRasc(ch)); } catch (e) {} }
+  function limparRascunho(ch) { modoPronta = false; prontaSrc = ''; quemSobe = ''; marcas.clear(); marcasChat = ''; clearTimeout(tRasc); rascunho = null; try { chrome.storage.local.remove(chaveRasc(ch)); } catch (e) {} }
   function agendarRascunho() {
     if (!$('#veu').classList.contains('on') || !$('#gdireto')) return;   // só quando o menu está na tela (não no andamento)
     const ch = chatPainel.id || chatAtual().id; if (!ch) return;
@@ -1051,7 +1076,7 @@ const chrome = (() => {
     tRasc = setTimeout(() => {
       const algo = pessoas.some(p => p.foto || p.editada || p.animal || p.bebe || p.semcamisa || p.calca || p.vestido || p.papel) || ajuste.trim() || n > 1;
       if (!algo) { try { chrome.storage.local.remove(chaveRasc(ch)); } catch (e) {} return; }
-      const dado = { n, juntos, jq, ajuste, mais, pessoas: pessoas.map(p => { const f = p.foto && fotosSel.find(x => x.id === p.foto); return { ...p, foto: null, busy: false, fotoSrc: f ? f.src : null }; }) };
+      const dado = { t: Date.now(), n, juntos, jq, ajuste, mais, pessoas: pessoas.map(p => { const f = p.foto && fotosSel.find(x => x.id === p.foto); return { ...p, foto: null, busy: false, fotoSrc: f ? f.src : null }; }) };
       try { chrome.storage.local.set({ [chaveRasc(ch)]: dado }); } catch (e) {}
     }, 500);
   }
@@ -1105,6 +1130,28 @@ const chrome = (() => {
         if (k.startsWith('aviso_')) avisos[k.slice(6)] = v;
       }
     } catch (e) {}
+    // ---- limpeza diária: apaga o que passou de 7 dias (pedidos guardados, rascunhos, avisos, históricos) para a memória do Tampermonkey não crescer ----
+    try {
+      const ULT = '__limpeza', VALE = 7 * 864e5, agora = Date.now();
+      const feita = (await chrome.storage.local.get(ULT))[ULT] || 0;
+      if (agora - feita > 864e5) {
+        const todo = await chrome.storage.local.get(null), apagar = [], gravar = {};
+        const idade = id => { const m = /^[a-z]?(\d{12,})$/.exec(String(id)); return m ? agora - Number(m[1]) : 0; };   // os números dos pedidos (l17954...) são a hora em milissegundos
+        for (const [k, v] of Object.entries(todo)) {
+          if (/^(ped_|auto_|lock_)/.test(k)) { if (idade(k.replace(/^[a-z]+_/, '')) > VALE) apagar.push(k); }
+          else if (k.startsWith('hist_') && Array.isArray(v)) {
+            const novos = v.filter(x => x && agora - (x.t || 0) < VALE);
+            if (!novos.length) { apagar.push(k, 'aviso_' + k.slice(5)); } else if (novos.length !== v.length) gravar[k] = novos;
+          } else if (k.startsWith('rasc_') && v && typeof v === 'object') {
+            if (!v.t) gravar[k] = { ...v, t: agora };                 // rascunho antigo sem data: começa a contar agora
+            else if (agora - v.t > VALE) apagar.push(k);
+          }
+        }
+        gravar[ULT] = agora;
+        await chrome.storage.local.set(gravar);
+        if (apagar.length) await chrome.storage.local.remove([...new Set(apagar)]);
+      }
+    } catch (e) { console.warn('[Estúdio] limpeza da memória não rodou:', e); }
     const tentando = new Set();
     setInterval(async () => {
       for (const [ch, id] of [...vigia]) {
@@ -1365,6 +1412,7 @@ const chrome = (() => {
         <section class="col"><div class="ct"><span>1 · Original e refazer</span></div>
           <div class="cartao" id="c-orig"><div class="espera">Abrindo as fotos…</div></div>
           <div id="jqs" class="jqs-l"></div>
+          <div class="aj" style="margin:8px 0"><label for="r-aj">Quer mudar algo?</label><input id="r-aj" maxlength="300" placeholder="Ex.: trocar a roupa, tirar o copo da mão" style="width:100%"></div>
           <div class="lin2"><button class="gr" id="r-direto">Gerar homenagem</button><button class="gr sec" id="r-previa">Só a prévia</button></div>
           <div class="stt" id="r-msg"></div></section>
         <section class="col"><div class="ct"><span>2 · Prévia · cliente</span><span id="p-pill"></span></div>
@@ -1512,6 +1560,7 @@ const chrome = (() => {
       let g; try { const k = 'ped_' + id; g = (await chrome.storage.local.get(k))[k]; } catch (e) {}
       if (!g) { m.className = 'stt bad'; m.textContent = 'Este pedido é antigo: use "Nova homenagem neste chat".'; return; }
       const ped = JSON.parse(JSON.stringify(g)); ped.opcoes = ped.opcoes || {}; ped.opcoes.direto = direto;
+      const aj2 = (($('#r-aj') || {}).value || '').trim(); if (aj2) ped.opcoes.ajuste = aj2;   // o que o editor escreveu em "Quer mudar algo?" entra na nova prévia/vídeo
       ped.refazer_de = id;   // é a MESMA homenagem (mesmo cliente): o Estúdio mantém o nome e não conta como pedido novo
       if (ped.juntos && jqRef) ped.caso = jqRef;
       m.textContent = 'Enviando ao Estúdio…';
