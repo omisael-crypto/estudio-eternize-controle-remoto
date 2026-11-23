@@ -1,7 +1,7 @@
-// Estúdio Eternize — controle remoto, versão 0.17.18 (gerado por leona/gerar.py)
+// Estúdio Eternize — controle remoto, versão 0.17.19 (gerado por leona/gerar.py)
 (function () {
 'use strict';
-const VERSAO_SCRIPT = '0.17.18';
+const VERSAO_SCRIPT = '0.17.19';
 // Faz o código da extensão (content.js) rodar no Tampermonkey: cria um "chrome" de mentira com as mesmas funções
 // (guardar dados, falar com o Estúdio deste computador). O código do menu é o MESMO da extensão.
 const chrome = (() => {
@@ -456,7 +456,8 @@ const chrome = (() => {
     .micb.on{background:#f2686a;border-color:#f2686a;color:#fff;animation:pulsa 1.2s ease-in-out infinite}
     @keyframes pulsa{50%{box-shadow:0 0 0 5px rgba(242,104,106,.25)}}
     .aviso{color:#fcd34d;font-size:13px;margin:6px 0}.aviso.bad{color:#fca5a5}
-    .dicac{font-size:13px;color:#9aa0b2;margin:4px 0 12px}.dicac b{color:#e6e8ee}
+    .dicac{display:flex;align-items:center;gap:9px;font-size:.8rem;color:#9aa0b2;margin:0;padding:9px 12px;background:#16161a;border:1px solid #2a2a31;border-radius:10px}.dicac:empty{display:none}
+    .dicac::before{content:"i";flex:none;width:16px;height:16px;border-radius:50%;background:rgba(76,141,255,.18);color:#4c8dff;font:700 11px/16px Georgia,serif;text-align:center}.dicac b{color:#e6e8ee}
     .go{width:100%;border:0;border-radius:10px;padding:13px;font-size:15px;font-weight:700;background:#4c8dff;color:#fff;cursor:pointer;margin-bottom:8px}
     .go.sec{background:#191a20;border:1px solid #2a2c35;color:#c9cdda}
     .go:disabled{opacity:.4;cursor:not-allowed}
@@ -469,10 +470,14 @@ const chrome = (() => {
     .dh select{height:32px;max-width:260px;border:1px solid #2a2a31;background:#1d1d22;color:#ececf0;border-radius:8px;padding:0 8px;font-size:.82rem}
     .dh .bt{height:32px;padding:0 14px;border:1px solid #2a2a31;background:#1d1d22;color:#ececf0;border-radius:8px;font-weight:600;font-size:.82rem;cursor:pointer;white-space:nowrap}
     .dh .bt:hover{border-color:#4c8dff}
-    .cols{flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:auto minmax(0,1fr) auto auto auto;column-gap:20px;row-gap:10px}
+    .cols{flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:auto minmax(0,1fr) auto auto auto auto auto;column-gap:20px;row-gap:10px;align-content:stretch}
     .col{display:contents}
     .col:nth-child(1)>*{grid-column:1}.col:nth-child(2)>*{grid-column:2}.col:nth-child(3)>*{grid-column:3}
-    .col>.ct{grid-row:1}.col>.cartao{grid-row:2}.col>.jqs-l{grid-row:3}.col>.lin2{grid-row:4}.col>.stt{grid-row:5}
+    .col>.ct{grid-row:1}.col>.cartao{grid-row:2}.col>.jqs-l{grid-row:3}.col>.lin2{grid-row:4}.col>.stt{grid-row:5}.col>.aj{grid-row:5}.col:nth-child(1)>.stt{grid-row:6}.col:nth-child(1)>.stt:empty{display:none}
+    .jqs-l:empty,.aj:empty{display:none}
+    .aj{display:flex;flex-direction:column;gap:5px;margin:0}.aj label{margin:0;font-size:.78rem;font-weight:600;color:#9a9aa6}
+    .aj input{height:40px;box-sizing:border-box;border:1px solid #2a2a31;background:#16161a;color:#ececf0;border-radius:8px;padding:0 12px;font-size:.88rem;outline:none}.aj input:focus{border-color:#4c8dff}
+    .stt{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px}
     .rodape{display:flex;flex-direction:column;gap:4px}.rodape:empty{display:none}
     .col .ct{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:24px;font-size:.72rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#9a9aa6}
     .cartao{flex:1;min-height:0;position:relative;background:#16161a;border:1px solid #2a2a31;border-radius:10px;overflow:hidden;display:flex;align-items:center;justify-content:center}
@@ -502,12 +507,14 @@ const chrome = (() => {
     .mpc h3{margin:0;font-size:15px}.mpc p{margin:0;font-size:12.5px;color:#9aa0b2}
     .mpc textarea{width:100%;min-height:260px;resize:vertical;background:#0f1015;color:#e6e8f0;border:1px solid #2a2c35;border-radius:8px;padding:10px;font:12.5px/1.45 ui-monospace,Consolas,monospace;box-sizing:border-box}
     .mpc .lin{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.mpc .lin .qtd{margin-left:auto;font-size:12px;color:#9aa0b2}.mpc .lin .qtd.bad{color:#f2686a}
-    .avc{display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex:0 0 100%;margin:6px 0 0;color:#9aa0b2}
-    .avb{font:inherit;font-size:12px;padding:2px 9px;border-radius:7px;border:1px solid #2a2c35;background:#1d1f27;color:#c9cdda;cursor:pointer}
+    .env{display:flex;flex:0 0 100%;align-items:center;gap:6px;padding:8px 12px;border-radius:10px;background:rgba(34,211,102,.12);color:#22d366;font-size:.8rem;font-weight:600}
+    .avc{display:flex;align-items:center;justify-content:flex-start;gap:8px;flex-wrap:wrap;flex:0 0 100%;margin:0;padding:8px 10px 8px 12px;background:#16161a;border:1px solid #2a2a31;border-radius:10px;color:#b4b8c6;font-size:.82rem}
+    .avc>span:first-child{font-weight:600;margin-right:auto}.avc .avb{margin-left:0}
+    .avb{font:inherit;font-size:.8rem;font-weight:600;height:30px;padding:0 14px;border-radius:8px;border:1px solid #2a2c35;background:#1d1f27;color:#c9cdda;cursor:pointer}
     .avb.ok{border-color:#22d366;color:#22d366}.avb.bad{border-color:#f2686a;color:#f2686a}.avb:hover{background:#262935}
     .avm{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px;width:100%}
     #s-video{flex-wrap:wrap}
-    .stt{font-size:.85rem;color:#8e8e9a;min-height:20px}.stt.ok{color:#22d366}.stt.bad{color:#f2686a}
+    .stt{font-size:.85rem;color:#8e8e9a;min-height:22px;line-height:1.3}.stt.ok{color:#22d366}.stt.bad{color:#f2686a}
     .andam .erro{color:#f2686a;font-size:.85rem}
     @media(max-width:1100px){.cols{grid-template-columns:1fr;grid-template-rows:none;overflow:auto}.col{display:flex;flex-direction:column;gap:10px}.col>*{grid-column:auto!important;grid-row:auto!important}.cartao{min-height:360px}}
   </style>
@@ -1517,7 +1524,7 @@ const chrome = (() => {
         <section class="col"><div class="ct"><span>1 · Original e refazer</span></div>
           <div class="cartao" id="c-orig"><div class="espera">Abrindo as fotos…</div></div>
           <div id="jqs" class="jqs-l"></div>
-          <div class="aj" style="margin:8px 0"><label for="r-aj">Quer mudar algo?</label><input id="r-aj" maxlength="300" placeholder="Ex.: trocar a roupa, tirar o copo da mão" style="width:100%"></div>
+          <div class="aj"><label for="r-aj">Quer mudar algo?</label><input id="r-aj" maxlength="300" placeholder="Ex.: trocar a roupa, tirar o copo da mão"></div>
           <div class="lin2"><button class="gr" id="r-direto">Gerar homenagem</button><button class="gr sec" id="r-previa">Só a prévia</button></div>
           <div class="stt" id="r-msg"></div></section>
         <section class="col"><div class="ct"><span>2 · Prévia · cliente</span><span id="p-pill"></span></div>
@@ -1640,7 +1647,7 @@ const chrome = (() => {
               : '<div class="espera">O vídeo começa quando a prévia ficar pronta.</div>'; }
           $('#e-video').disabled = !videoPronto; $('#f-video').disabled = !(videoPronto && uv); $('#b-video').disabled = !videoPronto;
           $('#e-video').textContent = ent.video ? 'Enviar o vídeo de novo' : 'Enviar vídeo ao cliente';
-          $('#s-video').className = 'stt' + (ent.video ? ' ok' : ''); $('#s-video').innerHTML = (ent.video ? IC.check + ' enviado às ' + esc(hora(ent.video)) : '') + (videoPronto && d.video && d.video.id ? '<span class="avc" id="avc"></span>' : '');
+          $('#s-video').className = 'stt' + (ent.video ? ' ok' : ''); $('#s-video').innerHTML = (ent.video ? '<span class="env">' + IC.check + ' Enviado ao cliente às ' + esc(hora(ent.video)) + '</span>' : '') + (videoPronto && d.video && d.video.id ? '<span class="avc" id="avc"></span>' : '');
           if (videoPronto && d.video && d.video.id) { ultimoVideo = { id: d.video.id, aval: d.video.aval || '', perguntar: d.perguntar_antes !== false }; pintarAval(d.video.id, d.video.aval || ''); }
         }
         if (!direto) { $('#e-video').disabled = true; $('#f-video').disabled = true; $('#b-video').disabled = true; }
