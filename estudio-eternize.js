@@ -1,7 +1,7 @@
-// Estúdio Eternize — controle remoto, versão 0.17.5 (gerado por leona/gerar.py)
+// Estúdio Eternize — controle remoto, versão 0.17.6 (gerado por leona/gerar.py)
 (function () {
 'use strict';
-const VERSAO_SCRIPT = '0.17.5';
+const VERSAO_SCRIPT = '0.17.6';
 // Faz o código da extensão (content.js) rodar no Tampermonkey: cria um "chrome" de mentira com as mesmas funções
 // (guardar dados, falar com o Estúdio deste computador). O código do menu é o MESMO da extensão.
 const chrome = (() => {
@@ -90,6 +90,8 @@ const chrome = (() => {
         const mime = by[0] === 0xff ? 'image/jpeg' : by[0] === 0x89 ? 'image/png' : by[0] === 0x52 ? 'image/webp' : (cab(r, 'content-type') || 'image/jpeg');
         return { ok: true, mime, b64: b64(r.response) };
       }
+      if (msg.tipo === 'alerta_pegar') { const r = await estudio('/api/alerta/pegar'); return { ok: r.status === 200, dados: r.json }; }
+      if (msg.tipo === 'alerta_enviado') { const r = await estudio('/api/alerta/enviado', { method: 'POST', body: JSON.stringify({ id: msg.id, ok: !!msg.ok }) }); return { ok: r.status === 200 }; }
       if (msg.tipo === 'repetir') { const r = await estudio('/api/leona/repetir', { method: 'POST', body: JSON.stringify({ id: msg.id, cancelar: !!msg.cancelar }) }); return { ok: r.status === 200, erro: (r.json && r.json.erro) || '' }; }
       if (msg.tipo === 'entregue') { const r = await estudio('/api/leona/entregue', { method: 'POST', body: JSON.stringify({ id: msg.id, tipo: msg.arquivo }) }); return { ok: r.status === 200 }; }
       return { ok: false, erro: 'Mensagem desconhecida.' };
@@ -110,6 +112,45 @@ const chrome = (() => {
   // ---- avisa o Estúdio, a cada minuto, que o controle remoto está ligado (o Estúdio mostra "conectado" no menu) ----
   const batida = () => { estudio('/api/leona/controle', { method: 'POST', body: JSON.stringify({ versao: typeof VERSAO_SCRIPT !== 'undefined' ? VERSAO_SCRIPT : '' }), tempo: 5000 }).catch(() => {}); };
   setTimeout(batida, 1500); setInterval(batida, 60000);
+
+  // ---- atualização: confere o GitHub a cada 5 min (e ao voltar para a aba) e AVISA na tela quando há versão nova pronta ----
+  // (o carregador só recarrega a Leona sozinho com o painel fechado e o editor parado; com o painel aberto, este aviso tem o botão "Atualizar agora")
+  try {
+    const URL_CODIGO = 'https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-eternize.js';
+    const atual = typeof VERSAO_SCRIPT !== 'undefined' ? String(VERSAO_SCRIPT) : '';
+    const tupla = v => String(v).split('.').map(n => parseInt(n, 10) || 0);
+    const maior = (a, b) => { const x = tupla(a), y = tupla(b); for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (x[i] || 0) - (y[i] || 0); if (d) return d > 0; } return false; };
+    let ultima = 0, mostrada = '';
+    const aviso = nova => {
+      if (mostrada === nova || !document.body) return; mostrada = nova;
+      const d = document.createElement('div'); d.id = 'estudio-aviso-versao';
+      d.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:2147483000;max-width:320px;background:#191a20;color:#e8eaf2;border:1px solid #4c8dff;border-radius:12px;padding:12px 14px;box-shadow:0 8px 28px rgba(0,0,0,.45);font:13px/1.4 system-ui,Segoe UI,sans-serif';
+      d.innerHTML = '<div style="font-weight:700;margin-bottom:4px">Estúdio Eternize: nova versão ' + nova + '</div><div style="color:#9aa0b2;margin-bottom:10px">Atualizar recarrega a Leona. O que você está montando no painel fica guardado como rascunho.</div><div style="display:flex;gap:8px;justify-content:flex-end"><button data-v="depois" style="border:1px solid #2a2c35;background:#16171c;color:#c9cdda;border-radius:8px;padding:7px 12px;cursor:pointer">Depois</button><button data-v="agora" style="border:1px solid #4c8dff;background:#4c8dff;color:#fff;border-radius:8px;padding:7px 12px;cursor:pointer;font-weight:700">Atualizar agora</button></div>';
+      d.addEventListener('click', e => {
+        const b = e.target.closest('button'); if (!b) return;
+        if (b.dataset.v === 'depois') { d.remove(); return; }
+        const w = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
+        if (w.__estudioOcupado > 0) { b.textContent = 'Enviando ao chat… espere'; setTimeout(() => { b.textContent = 'Atualizar agora'; }, 3000); return; }   // nunca recarrega no meio de um envio ao cliente
+        location.reload();
+      });
+      document.body.appendChild(d);
+    };
+    const conferirNova = async () => {
+      ultima = Date.now();
+      try {
+        const r = await pedir(URL_CODIGO + '?t=' + Math.floor(Date.now() / 60000), { tempo: 20000 });
+        if (r.status !== 200 || !/Estúdio Eternize — controle remoto/.test(r.responseText || '')) return;
+        const m = /VERSAO_SCRIPT\s*=\s*'([\d.]+)'/.exec(r.responseText); const nova = m && m[1];
+        if (!nova || !atual || !maior(nova, atual)) return;
+        GM_setValue('__codigo', r.responseText);   // o carregador usa este código ao recarregar (já entra direto na versão nova)
+        aviso(nova);
+      } catch (e) {}
+    };
+    if (GM_getValue('__codigo', '')) {   // só no carregador (a versão "completa" em um arquivo só se atualiza pelo próprio Tampermonkey)
+      setTimeout(conferirNova, 20000); setInterval(conferirNova, 5 * 60 * 1000);
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && Date.now() - ultima > 2 * 60 * 1000) conferirNova(); });
+    }
+  } catch (e) {}
 
   return {
     runtime: {
@@ -1050,7 +1091,9 @@ const chrome = (() => {
         if (!d.id) { vigia.delete(ch); continue; }
         const pronta = !!(d.previa && (d.previa.estado === 'pronto' || d.previa.estado === 'pronta'));
         const videoPronto = d.direto !== false && !!(d.video && d.video.estado === 'pronto');
-        const erro = !!(d.erro || (d.previa && d.previa.estado === 'erro') || (d.video && d.video.estado === 'erro'));
+        // erro (prévia, vídeo, montagem...) não encerra a vigia nem apaga o envio automático: o editor pode clicar em "Tentar novamente" e o pedido novo vai sozinho ao cliente; só desiste depois de 3 h
+        const velho = !!(d.inicio && Date.now() / 1000 - d.inicio > 3 * 3600);
+        const erro = !!(velho && (d.erro || (d.previa && d.previa.estado === 'erro') || (d.video && d.video.estado === 'erro')));
         const vendo = $('#veu').classList.contains('on') && chatAtual().id === ch;
         let novo = videoPronto ? 'video' : pronta ? 'previa' : '';
         if (novo && !vendo && avisos[ch] !== novo && !(avisos[ch] === 'video')) { avisos[ch] = novo; try { chrome.storage.local.set({ ['aviso_' + ch]: novo }); } catch (e) {} }
@@ -1164,6 +1207,29 @@ const chrome = (() => {
     if (!msg.ok) { let t = ''; try { t = (await msg.text()).slice(0, 160); } catch (e) {} throw new Error('A Leona recusou a mensagem (' + msg.status + '). ' + t); }
     return true;
   }
+  // ---------- aviso direto ao Misael (WhatsApp pela Leona) ----------
+  // O Estúdio guarda o aviso quando o Grok falha de um jeito que só o Misael resolve (a tela do Grok mudou). Esta aba (se a Leona estiver aberta) pega o aviso
+  // e manda no chat de alertas pela API da Leona, igual ao envio da prévia. O servidor entrega cada aviso a uma aba só e no máximo 1 a cada 2 minutos.
+  let alertaOcupado = false;
+  async function alertasVerificar() {
+    if (alertaOcupado) return; alertaOcupado = true;
+    try {
+      const r = await chrome.runtime.sendMessage({ tipo: 'alerta_pegar' }).catch(() => null);
+      const a = r && r.dados; if (!a || !a.id || !a.chat) return;
+      let ok = false;
+      try {
+        let tk = ''; try { tk = janelaPagina.localStorage.getItem('auth_token') || ''; } catch (e) {}
+        if (!tk) throw new Error('sem login da Leona nesta aba');
+        const aut = { Authorization: /^Bearer /i.test(tk) ? tk : 'Bearer ' + tk, 'Content-Type': 'application/json' };
+        const msg = await fetch(API_LEONA + '/chats/' + encodeURIComponent(a.chat) + '/messages', { method: 'POST', headers: aut,
+          body: JSON.stringify({ message: { content: a.texto, message_type: 'text', media_url: null, caption: '', reply_to_message_id: null, is_reply: false } }) });
+        ok = msg.ok;
+        if (!ok) { let t = ''; try { t = (await msg.text()).slice(0, 160); } catch (e) {} console.warn('[Estúdio] aviso ao Misael recusado pela Leona (' + msg.status + '): ' + t); }
+      } catch (e) { console.warn('[Estúdio] aviso ao Misael não enviado:', e && e.message || e); }
+      chrome.runtime.sendMessage({ tipo: 'alerta_enviado', id: a.id, ok });
+    } finally { alertaOcupado = false; }
+  }
+  setTimeout(alertasVerificar, 20000); setInterval(alertasVerificar, 60000);
   async function devolverReal(id, chatId, tipo, soBaixar, forcar) {
     const nomeTipo = tipo === 'video' ? 'o vídeo' : 'a prévia';
     try {
@@ -1353,7 +1419,9 @@ const chrome = (() => {
         mostrarMsg();
       };
       ultimaPintura();
-      if (erro || videoPronto || (!direto && pronta)) clearInterval(relogio);
+      // erro (prévia, vídeo, montagem...) não encerra a consulta: o editor pode clicar em "Tentar novamente" / "Refazer" no Estúdio e o pedido novo precisa aparecer aqui. Só desiste depois de 3 h.
+      const velhoTela = !!(d.inicio && Date.now() / 1000 - d.inicio > 3 * 3600);
+      if (videoPronto || (!direto && pronta) || (erro && velhoTela)) clearInterval(relogio);
     };
     $('#e-previa').onclick = () => devolver(id, chatId, 'previa', false);
     $('#b-previa').onclick = () => devolver(id, chatId, 'previa', true);
@@ -1368,6 +1436,7 @@ const chrome = (() => {
       let g; try { const k = 'ped_' + id; g = (await chrome.storage.local.get(k))[k]; } catch (e) {}
       if (!g) { m.className = 'stt bad'; m.textContent = 'Este pedido é antigo: use "Nova homenagem neste chat".'; return; }
       const ped = JSON.parse(JSON.stringify(g)); ped.opcoes = ped.opcoes || {}; ped.opcoes.direto = direto;
+      ped.refazer_de = id;   // é a MESMA homenagem (mesmo cliente): o Estúdio mantém o nome e não conta como pedido novo
       if (ped.juntos && jqRef) ped.caso = jqRef;
       m.textContent = 'Enviando ao Estúdio…';
       let r; try { r = await chrome.runtime.sendMessage({ tipo: 'gerar', pedido: ped }); } catch (e) { r = { erro: String(e) }; }
