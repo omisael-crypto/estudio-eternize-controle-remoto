@@ -2,7 +2,7 @@
 // @name         Estúdio Eternize (completo)
 // @namespace    eternize.estudio.completo
 // @icon         https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/icone.png
-// @version      0.17.19
+// @version      0.17.20
 // @description  Mostra as fotos que o cliente enviou no chat da Leona, separa por pessoa e manda para o Estúdio Eternize.
 // @updateURL    https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
 // @downloadURL  https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
@@ -22,10 +22,10 @@
 // @connect      raw.githubusercontent.com
 // ==/UserScript==
 
-// Estúdio Eternize — controle remoto, versão 0.17.19 (gerado por leona/gerar.py)
+// Estúdio Eternize — controle remoto, versão 0.17.20 (gerado por leona/gerar.py)
 (function () {
 'use strict';
-const VERSAO_SCRIPT = '0.17.19';
+const VERSAO_SCRIPT = '0.17.20';
 // Faz o código da extensão (content.js) rodar no Tampermonkey: cria um "chrome" de mentira com as mesmas funções
 // (guardar dados, falar com o Estúdio deste computador). O código do menu é o MESMO da extensão.
 const chrome = (() => {
@@ -120,6 +120,7 @@ const chrome = (() => {
       if (msg.tipo === 'meu_prompt_get') { const r = await estudio('/api/meu-prompt?caso=' + encodeURIComponent(String(msg.caso || ''))); return ({ ok: r.status === 200, dados: r.json, erro: (r.json && r.json.erro) || '' }); }
       if (msg.tipo === 'meu_prompt_set') { const r = await estudio('/api/meu-prompt', { method: 'POST', body: JSON.stringify({ caso: msg.caso, texto: msg.texto }) }); return ({ ok: r.status === 200, dados: r.json, erro: (r.json && r.json.erro) || '' }); }
       if (msg.tipo === 'avaliar') { const r = await estudio('/api/avaliar', { method: 'POST', body: JSON.stringify({ id: msg.id, resultado: msg.resultado, motivo: msg.motivo || '' }) }); return ({ ok: r.status === 200, erro: (r.json && r.json.erro) || '' }); }
+      if (msg.tipo === 'prompt_usado') { const r = await estudio('/api/prompt-usado?id=' + encodeURIComponent(String(msg.id || ''))); return ({ ok: r.status === 200, dados: r.json, erro: (r.json && r.json.erro) || '' }); }
       if (msg.tipo === 'repetir') { const r = await estudio('/api/leona/repetir', { method: 'POST', body: JSON.stringify({ id: msg.id, cancelar: !!msg.cancelar }) }); return { ok: r.status === 200, erro: (r.json && r.json.erro) || '' }; }
       if (msg.tipo === 'entregue') { const r = await estudio('/api/leona/entregue', { method: 'POST', body: JSON.stringify({ id: msg.id, tipo: msg.arquivo }) }); return { ok: r.status === 200 }; }
       return { ok: false, erro: 'Mensagem desconhecida.' };
@@ -538,6 +539,19 @@ const chrome = (() => {
     .avb.ok{border-color:#22d366;color:#22d366}.avb.bad{border-color:#f2686a;color:#f2686a}.avb:hover{background:#262935}
     .avm{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px;width:100%}
     #s-video{flex-wrap:wrap}
+    .andam{position:relative}
+    .gav{position:absolute;top:0;right:0;bottom:0;width:min(440px,100%);z-index:6;background:#16161a;border-left:1px solid #2a2a31;box-shadow:-12px 0 32px rgba(0,0,0,.45);padding:16px 18px;overflow:auto;display:flex;flex-direction:column;gap:14px}
+    .gav[hidden]{display:none}
+    .gav .gt{display:flex;align-items:center;justify-content:space-between;font-size:1rem;font-weight:700;color:#ececf0}
+    .gav .gx{height:30px;width:30px;border:1px solid #2a2a31;background:#1d1d22;color:#ececf0;border-radius:8px;cursor:pointer}
+    .gav .cel{display:flex;flex-direction:column;gap:6px;padding:12px;background:#131317;border:1px solid #2a2a31;border-radius:10px}
+    .gav .ctit{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:.72rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#9a9aa6}
+    .gav .tag{font-size:.7rem;letter-spacing:0;text-transform:none;font-weight:600;padding:2px 8px;border-radius:6px;background:rgba(76,141,255,.15);color:#7aa9ff}
+    .gav .tag.ed{background:rgba(250,204,21,.14);color:#facc15}
+    .gav pre{margin:0;max-height:240px;overflow:auto;white-space:pre-wrap;word-break:break-word;font:12px/1.5 ui-monospace,Consolas,monospace;color:#c9cdda}
+    .gav .tempo{font-size:.88rem;color:#ececf0;line-height:1.6}.gav .mut{font-size:.82rem;color:#8e8e9a}
+    .gav .cp{align-self:flex-start;height:28px;padding:0 12px;border:1px solid #2a2a31;background:#1d1d22;color:#ececf0;border-radius:8px;font-size:.78rem;font-weight:600;cursor:pointer}
+    .gav .cp:hover,.gav .gx:hover{border-color:#4c8dff}
     .stt{font-size:.85rem;color:#8e8e9a;min-height:22px;line-height:1.3}.stt.ok{color:#22d366}.stt.bad{color:#f2686a}
     .andam .erro{color:#f2686a;font-size:.85rem}
     @media(max-width:1100px){.cols{grid-template-columns:1fr;grid-template-rows:none;overflow:auto}.col{display:flex;flex-direction:column;gap:10px}.col>*{grid-column:auto!important;grid-row:auto!important}.cartao{min-height:360px}}
@@ -1543,7 +1557,7 @@ const chrome = (() => {
     previas[id] = previas[id] || {};
     const nomeChat = chatAtual().nome;
     $('#corpo').innerHTML = `<div class="andam">
-      <div class="dh"><h3 id="d-nome">Homenagem</h3><select id="d-hist" hidden aria-label="Homenagens deste chat" title="Homenagens deste chat"></select><small id="d-sub">Chat #${esc(chatId)}${nomeChat ? ' · ' + esc(nomeChat) : ''}</small><button class="bt" id="novo">Nova homenagem neste chat</button></div>
+      <div class="dh"><h3 id="d-nome">Homenagem</h3><select id="d-hist" hidden aria-label="Homenagens deste chat" title="Homenagens deste chat"></select><small id="d-sub">Chat #${esc(chatId)}${nomeChat ? ' · ' + esc(nomeChat) : ''}</small><button class="bt" id="detalhes" aria-expanded="false" title="Tempos e textos usados">Detalhes</button><button class="bt" id="novo">Nova homenagem neste chat</button></div>
       <div class="cols">
         <section class="col"><div class="ct"><span>1 · Original e refazer</span></div>
           <div class="cartao" id="c-orig"><div class="espera">Abrindo as fotos…</div></div>
@@ -1560,7 +1574,7 @@ const chrome = (() => {
           <div class="lin2"><button class="gr" id="e-video" disabled>Enviar vídeo ao cliente</button><button class="gr sec ic" id="f-video" title="Tela cheia" aria-label="Tela cheia" disabled>${IC.telaCheia}</button><button class="gr sec ic" id="b-video" title="Baixar o vídeo" aria-label="Baixar" disabled>${IC.baixar}</button></div>
           <div class="stt" id="s-video"></div></section>
       </div>
-      <div class="rodape"><div id="erro"></div><div class="dicac" id="dicaenv"></div><div id="msgenv" class="aviso"></div></div></div>`;
+      <aside class="gav" id="gav" hidden></aside><div class="rodape"><div id="erro"></div><div class="dicac" id="dicaenv"></div><div id="msgenv" class="aviso"></div></div></div>`;
     $('#novo').onclick = () => { clearInterval(relogio); abrir(true); };
     limparAviso(chatId);
     let autoDe = ''; chrome.storage.local.get('auto_' + id).then(o => { autoDe = o['auto_' + id] || ''; }).catch(() => {});
@@ -1576,6 +1590,28 @@ const chrome = (() => {
       }
     })();
     let ultimaPintura = null, dados = null, jqRef = null;
+    // ---- gaveta "Detalhes" (igual à do app): tempos e os textos usados na prévia e no vídeo ----
+    let gaveta = false; const promptsPed = {};
+    const fmtT = s => { s = Math.max(0, Math.floor(s || 0)); const m = Math.floor(s / 60), r = s % 60; return (m < 10 ? '0' : '') + m + ':' + (r < 10 ? '0' : '') + r; };
+    const ORIGEM = { padrao: ['Texto padrão', ''], editado: ['Ajustado neste pedido', 'ed'], editor: ['Texto do editor', 'ed'] };
+    const pintaGaveta = () => {
+      const g = $('#gav'); if (!g) return; g.hidden = !gaveta; const bt = $('#detalhes'); if (bt) bt.setAttribute('aria-expanded', gaveta ? 'true' : 'false');
+      if (!gaveta || !dados) return;
+      const d = dados, e = d.video && d.video.etapas; let h = '<div class="gt"><span>Detalhes</span><button class="gx" id="gavx" aria-label="Fechar detalhes">✕</button></div>';
+      if (e && e.total != null) h += `<div class="cel"><div class="ctit">Tempos</div><div class="tempo">⏱ ${fmtT(e.total)} no total<br><span class="mut">Prévia ${fmtT(e.previa)} · Vídeo ${fmtT(e.video)} · Montagem ${fmtT(e.montagem)}</span></div></div>`;
+      for (const [nome, ped] of [['Prompt da prévia', d.previa], ['Prompt do vídeo', d.video]]) {
+        if (!ped || !ped.id || ped.id === 'pronta') continue;
+        const p = promptsPed[ped.id];
+        if (p === undefined) { promptsPed[ped.id] = null; chrome.runtime.sendMessage({ tipo: 'prompt_usado', id: ped.id }).then(r => { promptsPed[ped.id] = (r && r.ok && r.dados) ? r.dados : { texto: '', erro: (r && r.erro) || 'Não consegui abrir.' }; pintaGaveta(); }).catch(() => { promptsPed[ped.id] = { texto: '', erro: 'Não consegui abrir.' }; pintaGaveta(); }); }
+        const o = p && ORIGEM[p.origem];
+        h += `<div class="cel"><div class="ctit"><span>${nome}</span>${o ? `<span class="tag ${o[1]}">${o[0]}</span>` : ''}</div>` + (p === undefined || p === null ? '<div class="mut">Carregando…</div>' : p.texto ? `<pre>${esc(p.texto)}</pre><button class="cp" data-cp="${esc(ped.id)}">Copiar</button>` : `<div class="mut">${esc(p.erro || 'Sem texto guardado.')}</div>`) + '</div>';
+      }
+      g.innerHTML = h;
+      const x = g.querySelector('#gavx'); if (x) x.onclick = () => { gaveta = false; pintaGaveta(); };
+      g.querySelectorAll('[data-cp]').forEach(b => { b.onclick = () => { const t = (promptsPed[b.dataset.cp] || {}).texto || ''; navigator.clipboard.writeText(t).then(() => { b.textContent = 'Copiado'; setTimeout(() => { b.textContent = 'Copiar'; }, 1500); }).catch(() => {}); }; });
+    };
+    $('#detalhes').onclick = () => { gaveta = !gaveta; pintaGaveta(); };
+
     const buscar = async (tipo, n) => {
       const ch = tipo === 'original' ? 'orig' + n : tipo;
       if (previas[id][ch] !== undefined) return;
@@ -1598,7 +1634,7 @@ const chrome = (() => {
         $('#c-orig').innerHTML = '';
         return;
       }
-      dados = d; casosPedido[id] = d.caso || '';
+      dados = d; casosPedido[id] = d.caso || ''; if (gaveta) pintaGaveta();
       entregasAtual = d.entregas || {};
       const direto = d.direto !== false, ent = d.entregas || {};
       const pronta = !!(d.previa && (d.previa.estado === 'pronto' || d.previa.estado === 'pronta'));
