@@ -2,7 +2,7 @@
 // @name         Estúdio Eternize (completo)
 // @namespace    eternize.estudio.completo
 // @icon         https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/icone.png
-// @version      0.17.20
+// @version      0.17.21
 // @description  Mostra as fotos que o cliente enviou no chat da Leona, separa por pessoa e manda para o Estúdio Eternize.
 // @updateURL    https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
 // @downloadURL  https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
@@ -22,10 +22,10 @@
 // @connect      raw.githubusercontent.com
 // ==/UserScript==
 
-// Estúdio Eternize — controle remoto, versão 0.17.20 (gerado por leona/gerar.py)
+// Estúdio Eternize — controle remoto, versão 0.17.21 (gerado por leona/gerar.py)
 (function () {
 'use strict';
-const VERSAO_SCRIPT = '0.17.20';
+const VERSAO_SCRIPT = '0.17.21';
 // Faz o código da extensão (content.js) rodar no Tampermonkey: cria um "chrome" de mentira com as mesmas funções
 // (guardar dados, falar com o Estúdio deste computador). O código do menu é o MESMO da extensão.
 const chrome = (() => {
@@ -406,6 +406,9 @@ const chrome = (() => {
     .alca::before{content:'';position:absolute;left:6px;top:50%;width:5px;height:44px;margin-top:-22px;border-radius:3px;background:#4c8dff;opacity:0;transition:opacity .12s}
     .alca:hover::after,.alca.arr::after{background:#4c8dff}.alca:hover::before,.alca.arr::before{opacity:1}
     .gav{width:var(--larg,min(100%,max(1020px,58vw)));max-width:100%;height:100%;background:#121317;color:#e6e8ee;border-left:2px solid #4c8dff;display:flex;flex-direction:column;font-size:14px;position:relative}
+    .paises{display:flex;align-items:center;gap:8px;margin-left:auto;margin-right:14px}.paises[hidden]{display:none}
+    .pais{width:38px;height:32px;padding:0;border:1px solid #2a2c35;border-radius:8px;background:transparent;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;opacity:.6}
+    .pais svg{width:22px;height:22px;display:block}.pais:hover{opacity:1;border-color:#4c8dff}.pais.on{opacity:1;border-color:#4c8dff;box-shadow:0 0 0 1px #4c8dff;background:#1d2233}
     header{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;background:#191a20;border-bottom:1px solid #2a2c35}
     .tit{display:flex;align-items:center;gap:10px}
     .logo{width:34px;height:34px;flex:none}
@@ -540,24 +543,24 @@ const chrome = (() => {
     .avm{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px;width:100%}
     #s-video{flex-wrap:wrap}
     .andam{position:relative}
-    .gav{position:absolute;top:0;right:0;bottom:0;width:min(440px,100%);z-index:6;background:#16161a;border-left:1px solid #2a2a31;box-shadow:-12px 0 32px rgba(0,0,0,.45);padding:16px 18px;overflow:auto;display:flex;flex-direction:column;gap:14px}
-    .gav[hidden]{display:none}
-    .gav .gt{display:flex;align-items:center;justify-content:space-between;font-size:1rem;font-weight:700;color:#ececf0}
-    .gav .gx{height:30px;width:30px;border:1px solid #2a2a31;background:#1d1d22;color:#ececf0;border-radius:8px;cursor:pointer}
-    .gav .cel{display:flex;flex-direction:column;gap:6px;padding:12px;background:#131317;border:1px solid #2a2a31;border-radius:10px}
-    .gav .ctit{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:.72rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#9a9aa6}
-    .gav .tag{font-size:.7rem;letter-spacing:0;text-transform:none;font-weight:600;padding:2px 8px;border-radius:6px;background:rgba(76,141,255,.15);color:#7aa9ff}
-    .gav .tag.ed{background:rgba(250,204,21,.14);color:#facc15}
-    .gav pre{margin:0;max-height:240px;overflow:auto;white-space:pre-wrap;word-break:break-word;font:12px/1.5 ui-monospace,Consolas,monospace;color:#c9cdda}
-    .gav .tempo{font-size:.88rem;color:#ececf0;line-height:1.6}.gav .mut{font-size:.82rem;color:#8e8e9a}
-    .gav .cp{align-self:flex-start;height:28px;padding:0 12px;border:1px solid #2a2a31;background:#1d1d22;color:#ececf0;border-radius:8px;font-size:.78rem;font-weight:600;cursor:pointer}
-    .gav .cp:hover,.gav .gx:hover{border-color:#4c8dff}
+    .gdet{position:absolute;top:0;right:0;bottom:0;width:min(440px,100%);z-index:6;background:#16161a;border-left:1px solid #2a2a31;box-shadow:-12px 0 32px rgba(0,0,0,.45);padding:16px 18px;overflow:auto;display:flex;flex-direction:column;gap:14px}
+    .gdet[hidden]{display:none}
+    .gdet .gt{display:flex;align-items:center;justify-content:space-between;font-size:1rem;font-weight:700;color:#ececf0}
+    .gdet .gx{height:30px;width:30px;border:1px solid #2a2a31;background:#1d1d22;color:#ececf0;border-radius:8px;cursor:pointer}
+    .gdet .cel{display:flex;flex-direction:column;gap:6px;padding:12px;background:#131317;border:1px solid #2a2a31;border-radius:10px}
+    .gdet .ctit{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:.72rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#9a9aa6}
+    .gdet .tag{font-size:.7rem;letter-spacing:0;text-transform:none;font-weight:600;padding:2px 8px;border-radius:6px;background:rgba(76,141,255,.15);color:#7aa9ff}
+    .gdet .tag.ed{background:rgba(250,204,21,.14);color:#facc15}
+    .gdet pre{margin:0;max-height:240px;overflow:auto;white-space:pre-wrap;word-break:break-word;font:12px/1.5 ui-monospace,Consolas,monospace;color:#c9cdda}
+    .gdet .tempo{font-size:.88rem;color:#ececf0;line-height:1.6}.gdet .mut{font-size:.82rem;color:#8e8e9a}
+    .gdet .cp{align-self:flex-start;height:28px;padding:0 12px;border:1px solid #2a2a31;background:#1d1d22;color:#ececf0;border-radius:8px;font-size:.78rem;font-weight:600;cursor:pointer}
+    .gdet .cp:hover,.gdet .gx:hover{border-color:#4c8dff}
     .stt{font-size:.85rem;color:#8e8e9a;min-height:22px;line-height:1.3}.stt.ok{color:#22d366}.stt.bad{color:#f2686a}
     .andam .erro{color:#f2686a;font-size:.85rem}
     @media(max-width:1100px){.cols{grid-template-columns:1fr;grid-template-rows:none;overflow:auto}.col{display:flex;flex-direction:column;gap:10px}.col>*{grid-column:auto!important;grid-row:auto!important}.cartao{min-height:360px}}
   </style>
   <div class="veu" id="veu"><div class="gav"><div class="alca" id="alca" title="Arraste para mudar a largura do painel (duplo clique volta ao tamanho padrão)"></div>
-    <header><div class="tit"><svg class="logo" viewBox="0 0 512 512" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#161d4a"/><stop offset="1" stop-color="#262b73"/></linearGradient><radialGradient id="lb"><stop offset="0" stop-color="#fcd679" stop-opacity=".55"/><stop offset="1" stop-color="#fcd679" stop-opacity="0"/></radialGradient></defs><rect width="512" height="512" rx="110" fill="url(#lg)"/><circle cx="256" cy="256" r="175" fill="url(#lb)"/><polygon fill="#fcd679" points="256,92 282,236 420,256 282,276 256,420 230,276 92,256 230,236"/><polygon fill="#fff6dc" points="256,150 270,242 372,256 270,270 256,370 242,270 140,256 242,242"/><polygon fill="#fcd679" points="385,100 392,128 420,135 392,142 385,170 378,142 350,135 378,128"/><polygon fill="#fcd679" points="131,355 136,375 156,380 136,385 131,405 126,385 106,380 126,375"/></svg><div><h3>Estúdio Eternize · Nova homenagem</h3><small id="cli"></small></div></div><button class="x" id="fechar" aria-label="Fechar" title="Fechar">${IC.fecharG}</button></header>
+    <header><div class="tit"><svg class="logo" viewBox="0 0 512 512" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#161d4a"/><stop offset="1" stop-color="#262b73"/></linearGradient><radialGradient id="lb"><stop offset="0" stop-color="#fcd679" stop-opacity=".55"/><stop offset="1" stop-color="#fcd679" stop-opacity="0"/></radialGradient></defs><rect width="512" height="512" rx="110" fill="url(#lg)"/><circle cx="256" cy="256" r="175" fill="url(#lb)"/><polygon fill="#fcd679" points="256,92 282,236 420,256 282,276 256,420 230,276 92,256 230,236"/><polygon fill="#fff6dc" points="256,150 270,242 372,256 270,270 256,370 242,270 140,256 242,242"/><polygon fill="#fcd679" points="385,100 392,128 420,135 392,142 385,170 378,142 350,135 378,128"/><polygon fill="#fcd679" points="131,355 136,375 156,380 136,385 131,405 126,385 106,380 126,375"/></svg><div><h3>Estúdio Eternize · Nova homenagem</h3><small id="cli"></small></div></div><div class="paises" id="paises"><button type="button" class="pais" id="aniv" aria-pressed="false" aria-label="Aniversário" title="Homenagem de ANIVERSÁRIO (1 pessoa): a foto entra numa festa com bolo e sopra as velas"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21h18v1.6H3z" fill="#e8dcc8"/><rect x="4" y="15" width="16" height="6" rx="1.2" fill="#ff8fb3"/><rect x="6" y="10.5" width="12" height="5" rx="1.2" fill="#fff3d6"/><path d="M4 15.4c1.3 1.6 2.6 1.6 4 0 1.4 1.6 2.6 1.6 4 0 1.4 1.6 2.6 1.6 4 0 1.3 1.6 2.5 1.6 4 0v1.2H4z" fill="#fff"/><rect x="7.2" y="6.5" width="1.6" height="4" rx=".5" fill="#4fa3ff"/><rect x="11.2" y="5.5" width="1.6" height="5" rx=".5" fill="#ffd34d"/><rect x="15.2" y="6.5" width="1.6" height="4" rx=".5" fill="#6fd16f"/><path d="M8 3.2c.9 1 .9 2-0 2.8-.9-.8-.9-1.8 0-2.8zM12 2c.9 1 .9 2 0 2.8-.9-.8-.9-1.8 0-2.8zM16 3.2c.9 1 .9 2 0 2.8-.9-.8-.9-1.8 0-2.8z" fill="#ff9a1f"/></svg></button></div><button class="x" id="fechar" aria-label="Fechar" title="Fechar">${IC.fecharG}</button></header>
     <div class="corpo" id="corpo"></div>
     <div class="edit" id="edit"></div>
   </div></div>`;
@@ -1005,7 +1008,7 @@ const chrome = (() => {
       <div class="dir" id="dir">
         ${modoPronta ? `<div class="aviso" style="border-color:#4c8dff"><b>Usando uma prévia já enviada:</b> só o vídeo será gerado (sem gastar prévia).${prontaSrc ? '' : ' Escolha a prévia na coluna ao lado.'} <button class="troca" id="tirapronta" style="margin-left:8px;text-transform:none;letter-spacing:0">Cancelar</button><div style="margin-top:8px"><label for="quem">Quem sobe a escada?${n >= 2 ? ' (obrigatório)' : ' (opcional)'}</label><input id="quem" maxlength="200" placeholder="Ex.: a senhora de blusa vermelha, à esquerda" value="${esc(quemSobe)}" style="width:100%"></div></div>` : ''}
         <div class="passo"><b>1</b><span>Quantas pessoas?</span>${n === 2 ? `<button class="troca" id="juntos" aria-pressed="${emJuntos()}" title="As duas pessoas aparecem na mesma foto: cole uma foto só e diga quem faleceu" style="${emJuntos() ? 'background:#4c8dff;color:#fff;border-color:#4c8dff' : ''}">${IC.pessoas} Mesma foto</button>` : ''}</div>
-        <div class="seg">${(aniv ? [1] : [1, 2, 3, 4]).map(k => `<button data-n="${k}" class="${k === n ? 'on' : ''}">${k} ${k === 1 ? 'pessoa' : 'pessoas'}</button>`).join('')}${aniv ? '' : `<button data-n="5" class="mais ${n > 4 ? 'on' : ''}" title="Mais pessoas (5 a 8)" aria-label="Mais pessoas, de 5 a 8" style="flex:0 0 44px">+</button>`}<button id="aniv" class="${aniv ? 'on' : ''}" aria-pressed="${aniv}" title="Homenagem de ANIVERSÁRIO (1 pessoa): a foto entra numa festa com bolo e sopra as velas" style="flex:0 0 auto;padding:0 12px">🎂 Aniversário</button></div>
+        <div class="seg">${(aniv ? [1] : [1, 2, 3, 4]).map(k => `<button data-n="${k}" class="${k === n ? 'on' : ''}">${k} ${k === 1 ? 'pessoa' : 'pessoas'}</button>`).join('')}${aniv ? '' : `<button data-n="5" class="mais ${n > 4 ? 'on' : ''}" title="Mais pessoas (5 a 8)" aria-label="Mais pessoas, de 5 a 8" style="flex:0 0 44px">+</button>`}</div>
         ${n > 4 ? `<div class="seg">${[5, 6, 7, 8].map(k => `<button data-n="${k}" class="${k === n ? 'on' : ''}">${k} pessoas</button>`).join('')}</div>` : ''}
         <div class="passo"><b>2</b><span>${emJuntos() ? 'Cole a foto com as duas e diga quem faleceu' : n >= 2 ? 'Cole as fotos e marque quem faleceu' : 'Cole a foto'}</span>${n >= 2 && n <= 4 && !emJuntos() ? '<button class="troca" id="troca" title="Inverter a ordem (esquerda e direita)">' + IC.trocar + ' Trocar</button>' : ''}</div>
         <div class="grade ${n === 1 || emJuntos() ? 'um' : ''}${modoPronta ? ' pr' : ''}">${cartoes}</div>
@@ -1030,7 +1033,7 @@ const chrome = (() => {
   function ligar() {
     const c = $('#corpo');
     c.querySelectorAll('[data-n]').forEach(b => b.onclick = () => { setN(+b.dataset.n); msg = ''; desenhar(); });
-    const ba = $('#aniv'); if (ba) ba.onclick = () => { aniv = !aniv; if (aniv) setN(1); msg = ''; desenhar(); };   // aniversário é sempre 1 pessoa
+    { const ba = $('#aniv'); if (ba) { ba.classList.toggle('on', aniv); ba.setAttribute('aria-pressed', String(aniv)); $('#paises').hidden = false; } }   // o bolo fica no topo (ligado = pedido de aniversário)
     c.querySelectorAll('[data-slot]').forEach(e => e.onclick = () => { ativa = +e.dataset.slot; desenhar(); });
     c.querySelectorAll('[data-lim]').forEach(e => e.onclick = ev => { ev.stopPropagation(); const q = pessoas[+e.dataset.lim]; q.foto = null; q.edit = null; q.editada = null; ativa = +e.dataset.lim; desenhar(); });
     c.querySelectorAll('[data-edit]').forEach(e => e.onclick = ev => { ev.stopPropagation(); abrirEditor(+e.dataset.edit); });
@@ -1556,6 +1559,7 @@ const chrome = (() => {
     clearInterval(relogio);
     previas[id] = previas[id] || {};
     const nomeChat = chatAtual().nome;
+    $('#paises').hidden = true;   // o bolo só vale ao montar um pedido novo
     $('#corpo').innerHTML = `<div class="andam">
       <div class="dh"><h3 id="d-nome">Homenagem</h3><select id="d-hist" hidden aria-label="Homenagens deste chat" title="Homenagens deste chat"></select><small id="d-sub">Chat #${esc(chatId)}${nomeChat ? ' · ' + esc(nomeChat) : ''}</small><button class="bt" id="detalhes" aria-expanded="false" title="Tempos e textos usados">Detalhes</button><button class="bt" id="novo">Nova homenagem neste chat</button></div>
       <div class="cols">
@@ -1574,7 +1578,7 @@ const chrome = (() => {
           <div class="lin2"><button class="gr" id="e-video" disabled>Enviar vídeo ao cliente</button><button class="gr sec ic" id="f-video" title="Tela cheia" aria-label="Tela cheia" disabled>${IC.telaCheia}</button><button class="gr sec ic" id="b-video" title="Baixar o vídeo" aria-label="Baixar" disabled>${IC.baixar}</button></div>
           <div class="stt" id="s-video"></div></section>
       </div>
-      <aside class="gav" id="gav" hidden></aside><div class="rodape"><div id="erro"></div><div class="dicac" id="dicaenv"></div><div id="msgenv" class="aviso"></div></div></div>`;
+      <aside class="gdet" id="gdet" hidden></aside><div class="rodape"><div id="erro"></div><div class="dicac" id="dicaenv"></div><div id="msgenv" class="aviso"></div></div></div>`;
     $('#novo').onclick = () => { clearInterval(relogio); abrir(true); };
     limparAviso(chatId);
     let autoDe = ''; chrome.storage.local.get('auto_' + id).then(o => { autoDe = o['auto_' + id] || ''; }).catch(() => {});
@@ -1595,7 +1599,7 @@ const chrome = (() => {
     const fmtT = s => { s = Math.max(0, Math.floor(s || 0)); const m = Math.floor(s / 60), r = s % 60; return (m < 10 ? '0' : '') + m + ':' + (r < 10 ? '0' : '') + r; };
     const ORIGEM = { padrao: ['Texto padrão', ''], editado: ['Ajustado neste pedido', 'ed'], editor: ['Texto do editor', 'ed'] };
     const pintaGaveta = () => {
-      const g = $('#gav'); if (!g) return; g.hidden = !gaveta; const bt = $('#detalhes'); if (bt) bt.setAttribute('aria-expanded', gaveta ? 'true' : 'false');
+      const g = $('#gdet'); if (!g) return; g.hidden = !gaveta; const bt = $('#detalhes'); if (bt) bt.setAttribute('aria-expanded', gaveta ? 'true' : 'false');
       if (!gaveta || !dados) return;
       const d = dados, e = d.video && d.video.etapas; let h = '<div class="gt"><span>Detalhes</span><button class="gx" id="gavx" aria-label="Fechar detalhes">✕</button></div>';
       if (e && e.total != null) h += `<div class="cel"><div class="ctit">Tempos</div><div class="tempo">⏱ ${fmtT(e.total)} no total<br><span class="mut">Prévia ${fmtT(e.previa)} · Vídeo ${fmtT(e.video)} · Montagem ${fmtT(e.montagem)}</span></div></div>`;
@@ -1903,6 +1907,7 @@ const chrome = (() => {
     if (atual && atual !== chatPainel.id) { if (++trocas >= 2) { trocas = 0; $('#veu').classList.remove('on'); toast('Você mudou de contato: fechei o painel para não misturar as fotos. Abra o Estúdio de novo no contato certo.'); } } else trocas = 0;
   }, 600);
   $('#fechar').onclick = () => $('#veu').classList.remove('on');
+  $('#aniv').onclick = () => { aniv = !aniv; if (aniv) setN(1); msg = ''; desenhar(); };   // aniversário é sempre 1 pessoa
   // clicar fora do painel (na área escura) fecha
   $('#veu').addEventListener('mousedown', e => { if (e.target === $('#veu')) $('#veu').classList.remove('on'); });
 })();
