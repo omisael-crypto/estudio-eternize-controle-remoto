@@ -1,7 +1,7 @@
-// Estúdio Eternize — controle remoto, versão 0.17.10 (gerado por leona/gerar.py)
+// Estúdio Eternize — controle remoto, versão 0.17.11 (gerado por leona/gerar.py)
 (function () {
 'use strict';
-const VERSAO_SCRIPT = '0.17.10';
+const VERSAO_SCRIPT = '0.17.11';
 // Faz o código da extensão (content.js) rodar no Tampermonkey: cria um "chrome" de mentira com as mesmas funções
 // (guardar dados, falar com o Estúdio deste computador). O código do menu é o MESMO da extensão.
 const chrome = (() => {
@@ -590,7 +590,7 @@ const chrome = (() => {
     P('#sub').textContent = PT.falhou ? 'Abra o aplicativo do Estúdio neste computador.'
       : PT.estado === 'inicio' ? 'O ponto abre sozinho no seu primeiro pedido.'
       : 'desde ' + horaPT(PT.desde);
-    P('#acao').textContent = PT.estado === 'trabalhando' ? 'Pausa' : PT.estado === 'inicio' ? 'Iniciar' : 'Voltar';
+    P('#acao').textContent = PT.estado === 'trabalhando' ? 'Pausa' : PT.estado === 'inicio' || PT.estado === 'encerrado' ? 'Iniciar' : 'Voltar';
     P('#acao').disabled = P('#enc').disabled = PT.falhou;
     P('#enc').style.display = PT.estado === 'trabalhando' || PT.estado === 'pausa' ? '' : 'none';
   }
@@ -1398,7 +1398,9 @@ const chrome = (() => {
       previas[id][ch] = null;
       try { const r = await chrome.runtime.sendMessage({ tipo: 'arquivo', id, arquivo: tipo, n });
         if (r && r.ok) { const bin = atob(r.b64), by = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) by[i] = bin.charCodeAt(i);
-          previas[id][ch] = URL.createObjectURL(new Blob([by], { type: String(r.mime).split(';')[0] })); } else previas[id][ch] = ''; } catch (e) { previas[id][ch] = ''; }
+          previas[id][ch] = URL.createObjectURL(new Blob([by], { type: String(r.mime).split(';')[0] })); delete previas[id]['err_' + ch]; }
+        else { previas[id][ch] = ''; previas[id]['err_' + ch] = (r && r.erro) || 'O Estúdio não respondeu.'; } } catch (e) { previas[id][ch] = ''; previas[id]['err_' + ch] = String((e && e.message) || e); }
+      if (previas[id][ch] === '') { const n2 = (previas[id]['n_' + ch] = (previas[id]['n_' + ch] || 0) + 1); if (n2 < 40) setTimeout(() => { if (previas[id] && previas[id][ch] === '') delete previas[id][ch]; }, 4000); }   // falhou: tenta de novo a cada 4 s (antes ficava "Abrindo…" para sempre)
       ultimaPintura && ultimaPintura();
     };
     const tela = (el, id2) => { const e = $(id2); if (e && e.requestFullscreen) e.requestFullscreen().catch(() => {}); };
@@ -1451,10 +1453,10 @@ const chrome = (() => {
         const pp = pe === 'ok' ? 'Pronto' : pe === 'erro' ? 'Erro' : (d.previa && d.previa.estado === 'fila') ? 'Na fila' : d.previa ? 'Gerando' : 'Enviando';
         $('#p-pill').innerHTML = `<span class="pill ${pe}">${pp}</span>`;
         const cp = $('#c-previa'), up = previas[id].previa;
-        const sigP = pronta ? 'img|' + up : pe + '|' + (d.previa ? d.previa.estado : 'x' + (d.estado || '') + (demora ? 'd' : '') + (erroPed ? d.erro : '')) + '|' + (pe === 'agora' && !dupPed ? cron('previa', d.previa ? d.previa.inicio : d.inicio) : '');
+        const sigP = pronta ? 'img|' + up + '|' + (previas[id].err_previa || '') : pe + '|' + (d.previa ? d.previa.estado : 'x' + (d.estado || '') + (demora ? 'd' : '') + (erroPed ? d.erro : '')) + '|' + (pe === 'agora' && !dupPed ? cron('previa', d.previa ? d.previa.inicio : d.inicio) : '');
         if (cp.dataset.sig !== sigP) { cp.dataset.sig = sigP;
           cp.innerHTML = pronta && up ? `<img id="im-previa" src="${up}" alt="Prévia">`
-            : pronta ? '<div class="espera">Abrindo a prévia…</div>'
+            : pronta ? '<div class="espera">' + (previas[id].err_previa ? 'Não consegui abrir a prévia: ' + esc(previas[id].err_previa) + '<br><small>Tentando de novo…</small>' : 'Abrindo a prévia…') + '</div>'
             : dupPed ? `<div class="espera"><b style="font-size:15px">Esse pedido já foi feito agora há pouco.</b><span>Pedir de novo mesmo assim?</span><div style="display:flex;gap:8px;margin-top:10px;justify-content:center"><button class="tb on" data-rep="sim">Pedir de novo</button><button class="tb" data-rep="nao">Cancelar</button></div></div>`
             : erroPed ? `<div class="espera erro">${esc(d.erro || 'Não consegui preparar o pedido.')}<br>Use "Gerar homenagem" ao lado para tentar de novo.</div>`
             : pe === 'erro' ? `<div class="espera erro">A prévia deu erro.</div>`
