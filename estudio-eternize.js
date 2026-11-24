@@ -1,7 +1,7 @@
-// Estúdio Eternize — controle remoto, versão 0.17.22 (gerado por leona/gerar.py)
+// Estúdio Eternize — controle remoto, versão 0.17.23 (gerado por leona/gerar.py)
 (function () {
 'use strict';
-const VERSAO_SCRIPT = '0.17.22';
+const VERSAO_SCRIPT = '0.17.23';
 // Faz o código da extensão (content.js) rodar no Tampermonkey: cria um "chrome" de mentira com as mesmas funções
 // (guardar dados, falar com o Estúdio deste computador). O código do menu é o MESMO da extensão.
 const chrome = (() => {
@@ -95,7 +95,7 @@ const chrome = (() => {
       if (msg.tipo === 'alerta_enviado') { const r = await estudio('/api/alerta/enviado', { method: 'POST', body: JSON.stringify({ id: msg.id, ok: !!msg.ok }) }); return { ok: r.status === 200 }; }
       if (msg.tipo === 'meu_prompt_get') { const r = await estudio('/api/meu-prompt?caso=' + encodeURIComponent(String(msg.caso || ''))); return ({ ok: r.status === 200, dados: r.json, erro: (r.json && r.json.erro) || '' }); }
       if (msg.tipo === 'meu_prompt_set') { const r = await estudio('/api/meu-prompt', { method: 'POST', body: JSON.stringify({ caso: msg.caso, texto: msg.texto }) }); return ({ ok: r.status === 200, dados: r.json, erro: (r.json && r.json.erro) || '' }); }
-      if (msg.tipo === 'avaliar') { const r = await estudio('/api/avaliar', { method: 'POST', body: JSON.stringify({ id: msg.id, resultado: msg.resultado, motivo: msg.motivo || '' }) }); return ({ ok: r.status === 200, erro: (r.json && r.json.erro) || '' }); }
+      if (msg.tipo === 'avaliar') { const r = await estudio('/api/avaliar', { method: 'POST', body: JSON.stringify({ id: msg.id, resultado: msg.resultado, motivo: msg.motivo || '', nota: msg.nota || '' }) }); return ({ ok: r.status === 200, erro: (r.json && r.json.erro) || '' }); }
       if (msg.tipo === 'prompt_usado') { const r = await estudio('/api/prompt-usado?id=' + encodeURIComponent(String(msg.id || ''))); return ({ ok: r.status === 200, dados: r.json, erro: (r.json && r.json.erro) || '' }); }
       if (msg.tipo === 'repetir') { const r = await estudio('/api/leona/repetir', { method: 'POST', body: JSON.stringify({ id: msg.id, cancelar: !!msg.cancelar }) }); return { ok: r.status === 200, erro: (r.json && r.json.erro) || '' }; }
       if (msg.tipo === 'entregue') { const r = await estudio('/api/leona/entregue', { method: 'POST', body: JSON.stringify({ id: msg.id, tipo: msg.arquivo }) }); return { ok: r.status === 200 }; }
@@ -517,6 +517,8 @@ const chrome = (() => {
     .avb{font:inherit;font-size:.8rem;font-weight:600;height:30px;padding:0 14px;border-radius:8px;border:1px solid #2a2c35;background:#1d1f27;color:#c9cdda;cursor:pointer}
     .avb.ok{border-color:#22d366;color:#22d366}.avb.bad{border-color:#f2686a;color:#f2686a}.avb:hover{background:#262935}
     .avm{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px;width:100%}
+    .avn{flex:1;min-width:140px;height:30px;box-sizing:border-box;border:1px solid #2a2a31;background:#16161a;color:#ececf0;border-radius:8px;padding:0 10px;font-size:.8rem;outline:none}.avn:focus{border-color:#4c8dff}
+    .mpc .avn{height:38px;font-size:.88rem;width:100%}
     #s-video{flex-wrap:wrap}
     .andam{position:relative}
     .gdet{position:absolute;top:0;right:0;bottom:0;width:min(560px,100%);z-index:6;background:#121317;border-left:1px solid #2a2a31;box-shadow:-14px 0 34px rgba(0,0,0,.5);padding:18px 22px;overflow:auto;display:flex;flex-direction:column;gap:22px}
@@ -1115,18 +1117,20 @@ const chrome = (() => {
   }
   // ---- "Deu certo / Deu erro" no vídeo pronto: ajuda o Misael a achar qual texto funciona ----
   const MOTIVOS_AVAL = ['Jesus não abraçou', 'Não subiu a escada', 'Rosto mudou', 'Roupa mudou', 'Pessoa errada subiu', 'Outro'];
-  const avalLocal = {}; let avalAberto = '';
+  const avalLocal = {}; let avalAberto = '', avMot = '';
   function pintarAval(vid, servidor) {
     const c = $('#avc'); if (!c) return;
     const a = (vid in avalLocal) ? avalLocal[vid] : servidor;
     if (a) c.innerHTML = `<span class="${a === 'certo' ? 'ok' : 'bad'}" style="font-size:12px">${a === 'certo' ? 'Marcado: deu certo' : 'Marcado: deu erro'}</span><button class="avb" data-av="mudar">mudar</button>`;
-    else c.innerHTML = `<span style="font-size:12px">O vídeo ficou bom?</span><button class="avb ok" data-av="certo">Deu certo</button><button class="avb bad" data-av="erro">Deu erro</button>` + (avalAberto === vid ? `<div class="avm">${MOTIVOS_AVAL.map(m => `<button class="avb" data-mot="${esc(m)}">${esc(m)}</button>`).join('')}</div>` : '');
+    else c.innerHTML = `<span style="font-size:12px">O vídeo ficou bom?</span><button class="avb ok" data-av="certo">Deu certo</button><button class="avb bad" data-av="erro">Deu erro</button>` + (avalAberto === vid ? (avMot ? `<div class="avm"><span style="font-size:12px;width:100%">Motivo: <b>${esc(avMot)}</b></span><input class="avn" id="avnota" maxlength="300" placeholder="Quer explicar melhor? (opcional)"><button class="avb bad" data-av="enviarerro">Marcar erro</button><button class="avb" data-av="voltar">voltar</button></div>` : `<div class="avm">${MOTIVOS_AVAL.map(m => `<button class="avb" data-mot="${esc(m)}">${esc(m)}</button>`).join('')}</div>`) : '');
     c.querySelectorAll('[data-av]').forEach(b => { b.onclick = () => {
-      if (b.dataset.av === 'mudar') { avalLocal[vid] = ''; avalAberto = ''; return pintarAval(vid, servidor); }
-      if (b.dataset.av === 'erro') { avalAberto = avalAberto === vid ? '' : vid; return pintarAval(vid, servidor); }
+      if (b.dataset.av === 'mudar') { avalLocal[vid] = ''; avalAberto = ''; avMot = ''; return pintarAval(vid, servidor); }
+      if (b.dataset.av === 'erro') { avalAberto = avalAberto === vid ? '' : vid; avMot = ''; return pintarAval(vid, servidor); }
+      if (b.dataset.av === 'voltar') { avMot = ''; return pintarAval(vid, servidor); }
+      if (b.dataset.av === 'enviarerro') { const nota = ((c.querySelector('#avnota') || {}).value || '').trim(), mot = avMot; avMot = ''; return enviarAval(vid, 'erro', mot, servidor, nota); }
       enviarAval(vid, 'certo', '', servidor);
     }; });
-    c.querySelectorAll('[data-mot]').forEach(b => { b.onclick = () => enviarAval(vid, 'erro', b.dataset.mot, servidor); });
+    c.querySelectorAll('[data-mot]').forEach(b => { b.onclick = () => { avMot = b.dataset.mot; pintarAval(vid, servidor); }; });
   }
   let ultimoVideo = { id: '', aval: '', perguntar: true };
   // Antes de enviar o vídeo ao cliente: "O vídeo ficou bom?". Deu certo envia; Deu erro marca o motivo e NÃO envia (a menos que o editor escolha "Enviar mesmo assim").
@@ -1137,8 +1141,8 @@ const chrome = (() => {
       if (atual === 'certo') return resolve(true);
       const d = document.createElement('div'); d.className = 'mpd';
       const fim = ok => { d.remove(); resolve(ok); };
-      const marcar = async (res, mot) => {
-        const r = await chrome.runtime.sendMessage({ tipo: 'avaliar', id: v.id, resultado: res, motivo: mot || '' }).catch(() => null);
+      const marcar = async (res, mot, nota) => {
+        const r = await chrome.runtime.sendMessage({ tipo: 'avaliar', id: v.id, resultado: res, motivo: mot || '', nota: nota || '' }).catch(() => null);
         if (!(r && r.ok)) { const m = d.querySelector('#cvmsg'); m.textContent = 'Não consegui marcar agora. ' + ((r && r.erro) || 'Tente de novo.'); m.className = 'msg bad'; return false; }
         avalLocal[v.id] = res; avalAberto = ''; pintarAval(v.id, res); return true;
       };
@@ -1152,7 +1156,12 @@ const chrome = (() => {
       const telaMotivo = () => {
         d.innerHTML = `<div class="mpc"><h3>O que deu errado?</h3><div class="avm">${MOTIVOS_AVAL.map(m => `<button class="avb" data-mot="${esc(m)}">${esc(m)}</button>`).join('')}</div><div class="lin"><button class="go sec" id="cvvolta">Voltar</button></div><div class="msg" id="cvmsg"></div></div>`;
         d.querySelector('#cvvolta').onclick = telaPergunta;
-        d.querySelectorAll('[data-mot]').forEach(b => { b.onclick = async () => { if (await marcar('erro', b.dataset.mot)) telaErro(); }; });
+        d.querySelectorAll('[data-mot]').forEach(b => { b.onclick = () => telaNota(b.dataset.mot); });
+      };
+      const telaNota = mot => {
+        d.innerHTML = `<div class="mpc"><h3>Motivo: ${esc(mot)}</h3><p>Quer explicar melhor? Ajuda a corrigir o prompt (opcional).</p><input class="avn" id="cvnota" maxlength="300" placeholder="Ex.: Jesus ficou parado no topo e não desceu"><div class="lin"><button class="go" id="cvmarca">Marcar erro</button><button class="go sec" id="cvvolta2">Voltar</button></div><div class="msg" id="cvmsg"></div></div>`;
+        d.querySelector('#cvvolta2').onclick = telaMotivo;
+        d.querySelector('#cvmarca').onclick = async () => { const bt = d.querySelector('#cvmarca'); bt.disabled = true; bt.textContent = 'Marcando…'; if (await marcar('erro', mot, (d.querySelector('#cvnota').value || '').trim())) telaErro(); else { bt.disabled = false; bt.textContent = 'Marcar erro'; } };
       };
       const telaErro = () => {
         d.innerHTML = `<div class="mpc"><h3>Marcado como erro</h3><p>O vídeo NÃO foi enviado ao cliente. Use Refazer para gerar outro.</p>
@@ -1164,8 +1173,8 @@ const chrome = (() => {
       telaPergunta();
     });
   }
-  async function enviarAval(vid, resultado, motivo, servidor) {
-    const r = await chrome.runtime.sendMessage({ tipo: 'avaliar', id: vid, resultado, motivo }).catch(() => null);
+  async function enviarAval(vid, resultado, motivo, servidor, nota) {
+    const r = await chrome.runtime.sendMessage({ tipo: 'avaliar', id: vid, resultado, motivo, nota: nota || '' }).catch(() => null);
     if (r && r.ok) { avalLocal[vid] = resultado; avalAberto = ''; } else { msg = '!Não consegui marcar agora. ' + ((r && r.erro) || 'Tente de novo.'); }
     pintarAval(vid, servidor);
   }
