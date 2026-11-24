@@ -1,7 +1,7 @@
-// Estúdio Eternize — controle remoto, versão 0.17.24 (gerado por leona/gerar.py)
+// Estúdio Eternize — controle remoto, versão 0.17.26 (gerado por leona/gerar.py)
 (function () {
 'use strict';
-const VERSAO_SCRIPT = '0.17.24';
+const VERSAO_SCRIPT = '0.17.26';
 // Faz o código da extensão (content.js) rodar no Tampermonkey: cria um "chrome" de mentira com as mesmas funções
 // (guardar dados, falar com o Estúdio deste computador). O código do menu é o MESMO da extensão.
 const chrome = (() => {
@@ -232,7 +232,11 @@ const chrome = (() => {
   }
   let juntos = false, jq = '2f';   // "Mesma foto": as duas pessoas na mesma foto (só com 2 pessoas)
   const NOMEJQ = { '1f2v': 'A da esquerda faleceu', '1v2f': 'A da direita faleceu', '2f': 'As duas faleceram' };
-  const emJuntos = () => juntos && n === 2;
+  // "Mesma foto" com 3 pessoas: o caso é "3-" + uma letra por posição (esquerda, meio, direita; f = faleceu, v = viva)
+  const POS3 = ['a da esquerda', 'a do meio', 'a da direita'];
+  const sobem3 = q => (q || '').slice(2).split('').map((x, i) => x === 'f' ? POS3[i] : '').filter(Boolean);
+  const nomeJq = q => { if (NOMEJQ[q]) return NOMEJQ[q]; const f = sobem3(q); if (f.length === 3) return 'As três faleceram'; return (f.length === 1 ? 'Só ' + f[0] + ' faleceu' : (f[0].charAt(0).toUpperCase() + f[0].slice(1)) + ' e ' + f[1] + ' faleceram'); };
+  const emJuntos = () => juntos && (n === 2 || n === 3);
   let chatPainel = { id: '', nome: '' };   // o contato em que o painel foi aberto: tudo o que o painel faz vale para ELE, mesmo que a Leona mude de chat
 
   const nova = () => ({ vivo: false, foto: null, animal: false, bebe: false, semcamisa: false, calca: false, vestido: false, papel: '', edit: null, editada: null, busy: false });
@@ -441,7 +445,10 @@ const chrome = (() => {
     .jq button{border:0;border-bottom:1px solid #2a2c35;background:#16171c;color:#9aa0b2;padding:8px 2px;cursor:pointer;font-size:12px}
     .jq button:last-child{border-bottom:0}
     .jq button.on{background:#4c8dff;color:#fff;font-weight:700}
-    .grade.um:has(.jq){max-width:none}
+    .grade.um:has(.jq,.jq3){max-width:none}
+    .jq3{display:flex;flex-direction:column;gap:6px}.j3l{display:grid;grid-template-columns:84px 1fr;align-items:center;gap:8px}.j3l>span{font-size:12px;color:#8b90a0}
+    .jqs3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.jqs3>div{display:flex;flex-direction:column;gap:4px}.jqs3 span{font-size:.72rem;color:#8e8e9a;text-align:center}
+    .jqs3 button{border:1px solid #2a2a31;background:#16161a;color:#9a9aa6;border-radius:8px;padding:7px 4px;font-size:.78rem;cursor:pointer}.jqs3 button.on{background:#4c8dff;color:#fff;font-weight:700;border-color:#4c8dff}
     .par{display:grid;grid-template-columns:1fr 1fr;border:1px solid #2a2c35;border-radius:9px;overflow:hidden}
     .par button{border:0;border-right:1px solid #2a2c35;background:#16171c;color:#9aa0b2;padding:7px 2px;cursor:pointer;font-size:12px}
     .par button:last-child{border-right:0}
@@ -455,6 +462,12 @@ const chrome = (() => {
     .aj label{display:block;font-size:12px;color:#8b90a0;margin:6px 0 4px}
     .aj input{width:100%;height:36px;box-sizing:border-box;padding:0 14px;border-radius:18px;border:1px solid #2a2c35;background:#16171c;color:#fff;outline:none}
     .aj input:focus{border-color:#4c8dff}
+    .sec-t{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 4px;min-height:28px}.sec-t h5{margin:0}.sec-t.seg2{margin-top:20px}
+    .sec-s{color:#6f7486;font-size:12px;margin:0 0 10px}
+    .avpr{background:#16171c;border:1px solid #2a2c35;border-left:3px solid #4c8dff;border-radius:10px;padding:10px 12px 12px;margin:0 0 16px;font-size:13px;color:#9aa0b2}
+    .avpr .l1{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#e6e8ee;font-weight:700}
+    .avpr .l2{margin-top:2px}
+    .avpr .aj label{margin-top:10px}
     .micb{flex:none;width:36px;height:36px;padding:0;border-radius:50%;border:1px solid #2a2c35;background:#1d1d22;color:#8e8e9a;cursor:pointer;display:grid;place-items:center}
     .micb:hover{color:#fff;border-color:#4c8dff}
     .micb.on{background:#f2686a;border-color:#f2686a;color:#fff;animation:pulsa 1.2s ease-in-out infinite}
@@ -768,14 +781,15 @@ const chrome = (() => {
   }
   function dica() {
     if (n < 2) return '';
-    if (emJuntos()) return '<b>Sobem:</b> ' + ({ '2f': 'as duas pessoas', '1f2v': 'a da esquerda', '1v2f': 'a da direita' })[jq] + '.';
+    if (emJuntos()) return '<b>Sobem:</b> ' + (n === 3 ? (sobem3(jq).length === 3 ? 'as três pessoas' : sobem3(jq).join(' e ')) : ({ '2f': 'as duas pessoas', '1f2v': 'a da esquerda', '1v2f': 'a da direita' })[jq]) + '.';
     const l = letras(); if (!casoDe()) return '';
     const sobem = [], ficam = [];
     l.split('').forEach((x, i) => (x === 'f' ? sobem : ficam).push('Pessoa ' + (i + 1)));
     return '<b>Sobem:</b> ' + sobem.join(', ') + '.' + (ficam.length ? ' <b>Ficam e acompanham:</b> ' + ficam.join(', ') + '.' : '');
   }
   function setN(k) {
-    n = k; if (k !== 2) juntos = false;
+    n = k; if (k !== 2 && k !== 3) juntos = false;
+    if (k === 3 && !/^3-[fv]{3}$/.test(jq)) jq = '3-fff'; else if (k === 2 && /^3-/.test(jq)) jq = '2f';   // cada quantidade começa com o seu padrão
     while (pessoas.length < n) pessoas.push(nova());
     pessoas.length = n;
     const livre = pessoas.findIndex(p => !p.foto);   // o marcador vai para a primeira pessoa ainda sem foto
@@ -967,12 +981,13 @@ const chrome = (() => {
       const livre = !p.animal && !p.bebe;
       return `<div class="pes">
         <div class="slot ${i === ativa ? 'ativa' : ''} ${f ? 'cheio' : ''}" data-slot="${i}">
-          <b>${emJuntos() ? 'Foto com as duas pessoas' : 'P' + (i + 1)}</b>
+          <b>${emJuntos() ? (n === 3 ? 'Foto com as três pessoas' : 'Foto com as duas pessoas') : 'P' + (i + 1)}</b>
           <div class="acs"><button data-edit="${i}" title="Recortar esta pessoa de uma foto do cliente" aria-label="Recortar">${IC.tesoura}</button>${f ? `<button data-lim="${i}" title="Tirar a foto" aria-label="Tirar a foto">${IC.fechar}</button>` : ''}</div>
           ${f ? `<img src="${esc(p.editada ? p.editada.thumb : f.src)}">${p.editada ? '<span class="etq">recortada</span>' : ''}` : '<span class="dica">Clique numa foto do chat ou use o botão de tesoura para recortar a pessoa</span>'}
           ${p.busy ? '<div class="ocupado">Abrindo a foto…</div>' : ''}
         </div>
-        ${emJuntos() ? `<div class="jq">${['1f2v', '1v2f', '2f'].map(q => BT('', 'data-jq="' + q + '"', NOMEJQ[q], jq === q)).join('')}</div>` : ''}
+        ${emJuntos() && n === 2 ? `<div class="jq">${['1f2v', '1v2f', '2f'].map(q => BT('', 'data-jq="' + q + '"', NOMEJQ[q], jq === q)).join('')}</div>` : ''}
+        ${emJuntos() && n === 3 ? `<div class="jq3">${['Da esquerda', 'Do meio', 'Da direita'].map((nm, k) => `<div class="j3l"><span>${nm}</span><div class="par">${BT('', 'data-j3="' + k + '" data-v="f"', IC.estrela + ' Faleceu', jq[2 + k] === 'f')}${BT('', 'data-j3="' + k + '" data-v="v"', IC.coracao + ' Está viva', jq[2 + k] === 'v')}</div></div>`).join('')}</div>` : ''}
         ${n >= 2 && !emJuntos() ? `<div class="par" data-est="${i}">${BT('', 'data-v="0"', IC.estrela + ' Faleceu', !p.vivo)}${BT('', 'data-v="1"', IC.coracao + ' Está viva', p.vivo)}</div>` : ''}
         ${n >= 2 && n <= 4 && !emJuntos() ? `<div class="par ${todasFalecidas() ? '' : 'escondido'}" data-papel="${i}">${BT('', 'data-pp="espera"', 'No céu', p.papel === 'espera')}${BT('', 'data-pp="chega"', 'Chegou', p.papel === 'chega')}</div>` : ''}
         ${mais && !emJuntos() ? `<div class="trio">${aniv ? '' : BT('sc', 'data-op="animal"', 'Animal', p.animal) + BT('sc', 'data-op="bebe"', 'Bebê', p.bebe)}${livre ? BT('sc', 'data-op="semcamisa"', 'Sem camisa', p.semcamisa) : ''}</div>
@@ -982,20 +997,21 @@ const chrome = (() => {
 
     const rolEsq = ($('#corpo .esq') || {}).scrollTop || 0, rolDir = ($('#corpo .dir') || {}).scrollTop || 0;   // redesenhar não pode levar as duas colunas de volta ao topo
     $('#corpo').innerHTML = `
-      <div class="esq"><h5>Fotos que o cliente enviou (${fotosSel.length}) — clique para colocar na pessoa marcada <button class="troca ${buscando ? 'buscando' : ''}" id="antigas" style="margin-left:10px;text-transform:none;letter-spacing:0">${rotuloBusca()}</button></h5>
+      <div class="esq"><div class="sec-t"><h5>Fotos do cliente <span id="nfotos">(${fotosSel.length})</span></h5><button class="troca ${buscando ? 'buscando' : ''}" id="antigas">${rotuloBusca()}</button></div>
+        <div class="sec-s">Clique numa foto para colocar na pessoa marcada.</div>
         <div class="fotos">${fotosSel.map(f => `<div class="foto" data-f="${f.id}"><img src="${esc(f.src)}">${uso(f.id)}</div>`).join('') || '<div class="vazio">Nenhuma foto achada neste chat.</div>'}</div>
-        ${nossasSel.length ? `<h5 style="margin-top:16px">Prévias já enviadas neste chat — clique para gerar só o vídeo dela (${nossasSel.length})</h5><div class="fotos">${nossasSel.map(f => `<div class="foto" data-pronta="${f.id}" style="${modoPronta && prontaSrc === f.src ? 'outline:2px solid #4c8dff' : ''}"><img src="${esc(f.src)}">${modoPronta && prontaSrc === f.src ? '<span class="uso">escolhida</span>' : ''}</div>`).join('')}</div>` : ''}</div>
+        ${nossasSel.length ? `<div class="sec-t seg2"><h5>Prévias já enviadas (${nossasSel.length})</h5></div><div class="sec-s">Clique numa prévia para gerar só o vídeo dela.</div><div class="fotos">${nossasSel.map(f => `<div class="foto" data-pronta="${f.id}" style="${modoPronta && prontaSrc === f.src ? 'outline:2px solid #4c8dff' : ''}"><img src="${esc(f.src)}">${modoPronta && prontaSrc === f.src ? '<span class="uso">escolhida</span>' : ''}</div>`).join('')}</div>` : ''}</div>
       <div class="dir" id="dir">
-        ${modoPronta ? `<div class="aviso" style="border-color:#4c8dff"><b>Usando uma prévia já enviada:</b> só o vídeo será gerado (sem gastar prévia).${prontaSrc ? '' : ' Escolha a prévia na coluna ao lado.'} <button class="troca" id="tirapronta" style="margin-left:8px;text-transform:none;letter-spacing:0">Cancelar</button><div style="margin-top:8px"><label for="quem">Quem sobe a escada?${n >= 2 ? ' (obrigatório)' : ' (opcional)'}</label><input id="quem" maxlength="200" placeholder="Ex.: a senhora de blusa vermelha, à esquerda" value="${esc(quemSobe)}" style="width:100%"></div></div>` : ''}
-        <div class="passo"><b>1</b><span>Quantas pessoas?</span>${n === 2 ? `<button class="troca" id="juntos" aria-pressed="${emJuntos()}" title="As duas pessoas aparecem na mesma foto: cole uma foto só e diga quem faleceu" style="${emJuntos() ? 'background:#4c8dff;color:#fff;border-color:#4c8dff' : ''}">${IC.pessoas} Mesma foto</button>` : ''}</div>
+        ${modoPronta ? `<div class="avpr"><div class="l1"><span>Usando uma prévia já enviada</span><button class="troca" id="tirapronta">Cancelar</button></div><div class="l2">${prontaSrc ? 'Só o vídeo será gerado (sem gastar prévia).' : 'Escolha a prévia na coluna ao lado.'}</div><div class="aj"><label for="quem">Quem sobe a escada?${n >= 2 ? ' (obrigatório)' : ' (opcional)'}</label><input id="quem" maxlength="200" placeholder="Ex.: a senhora de blusa vermelha, à esquerda" value="${esc(quemSobe)}"></div></div>` : ''}
+        <div class="passo"><b>1</b><span>Quantas pessoas?</span>${n === 2 || n === 3 ? `<button class="troca" id="juntos" aria-pressed="${emJuntos()}" title="As ${n === 3 ? 'três' : 'duas'} pessoas aparecem na mesma foto: cole uma foto só e diga quem faleceu" style="${emJuntos() ? 'background:#4c8dff;color:#fff;border-color:#4c8dff' : ''}">${IC.pessoas} Mesma foto</button>` : ''}</div>
         <div class="seg">${(aniv ? [1] : [1, 2, 3, 4]).map(k => `<button data-n="${k}" class="${k === n ? 'on' : ''}">${k} ${k === 1 ? 'pessoa' : 'pessoas'}</button>`).join('')}${aniv ? '' : `<button data-n="5" class="mais ${n > 4 ? 'on' : ''}" title="Mais pessoas (5 a 8)" aria-label="Mais pessoas, de 5 a 8" style="flex:0 0 44px">+</button>`}</div>
         ${n > 4 ? `<div class="seg">${[5, 6, 7, 8].map(k => `<button data-n="${k}" class="${k === n ? 'on' : ''}">${k} pessoas</button>`).join('')}</div>` : ''}
-        <div class="passo"><b>2</b><span>${emJuntos() ? 'Cole a foto com as duas e diga quem faleceu' : n >= 2 ? 'Cole as fotos e marque quem faleceu' : 'Cole a foto'}</span>${n >= 2 && n <= 4 && !emJuntos() ? '<button class="troca" id="troca" title="Inverter a ordem (esquerda e direita)">' + IC.trocar + ' Trocar</button>' : ''}</div>
+        ${modoPronta && n < 2 ? '' : `<div class="passo"><b>2</b><span>${modoPronta ? 'Marque quem faleceu' : emJuntos() ? 'Cole a foto com ' + (n === 3 ? 'as três' : 'as duas') + ' e diga quem faleceu' : n >= 2 ? 'Cole as fotos e marque quem faleceu' : 'Cole a foto'}</span>${n >= 2 && n <= 4 && !emJuntos() ? '<button class="troca" id="troca" title="Inverter a ordem (esquerda e direita)">' + IC.trocar + ' Trocar</button>' : ''}</div>`}
         <div class="grade ${n === 1 || emJuntos() ? 'um' : ''}${modoPronta ? ' pr' : ''}">${cartoes}</div>
         ${prob ? `<div class="aviso">${esc(prob)}</div>` : ''}
         <button class="maisop" id="mais">${rotuloMais()}</button>
         ${mais || modoPronta ? `<div class="aj"><label for="aj">${modoPronta ? 'Quer mudar algo no vídeo? (opcional)' : 'Quer mudar algo?'}</label><div style="display:flex;gap:8px;align-items:center"><input id="aj" maxlength="500" placeholder="${modoPronta ? 'Ex.: sem Jesus, ou tirar o copo da mão' : 'Ex.: tirar o copo da mão'}" value="${esc(ajuste)}" style="flex:1">${REC ? '<button class="micb" id="ajmic" type="button" title="Falar em vez de escrever" aria-label="Falar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>' : ''}</div><div id="micmsg" class="aviso" style="display:none"></div></div>` : ''}
-        <div class="passo" style="margin-top:14px"><b>3</b><span>Gerar</span></div>
+        <div class="passo" style="margin-top:14px"><b>${modoPronta && n < 2 ? 2 : 3}</b><span>Gerar</span></div>
         <div class="dicac">${dica()}</div>
         <label class="chv" title="Ligada: só aparecem os botões 'e enviar' (quando o arquivo fica pronto, vai sozinho para o cliente, mesmo que você já esteja em outro chat). Desligada: só aparecem os botões comuns e você envia à mão."><input type="checkbox" id="chaveauto" ${autoEnvio ? 'checked' : ''}><i></i><span>Envio automático ao cliente</span></label>
         ${casoDe() && !modoPronta ? '<button class="maisop" id="meuprompt" title="Seu texto do vídeo só para você (não muda o padrão dos outros)">Meu prompt</button>' : ''}
@@ -1039,6 +1055,10 @@ const chrome = (() => {
     const ant = $('#antigas'); if (ant) ant.onclick = () => { if (buscando) return; const ch = chatAtual().id; completo.delete(ch); buscaFundo(ch); };
     const jb = $('#juntos'); if (jb) jb.onclick = () => { juntos = !juntos; ativa = 0; msg = ''; desenhar(); };
     c.querySelectorAll('[data-jq]').forEach(b => b.onclick = () => { jq = b.dataset.jq; desenhar(); });
+    c.querySelectorAll('[data-j3]').forEach(b => b.onclick = () => {   // 3 pessoas na mesma foto: marca quem faleceu em cada posição
+      const l = jq.slice(2).split(''); l[+b.dataset.j3] = b.dataset.v;
+      if (!l.includes('f')) { msg = '!Pelo menos uma pessoa precisa ter falecido.'; desenhar(); return; }
+      jq = '3-' + l.join(''); msg = ''; desenhar(); });
     const troca = $('#troca'); if (troca) troca.onclick = () => { pessoas.reverse(); ativa = 0; desenhar(); };
     $('#mais').onclick = () => { mais = !mais; desenhar(); };
     const mic = $('#ajmic'); if (mic) mic.onclick = () => falar(mic, $('#aj'));
@@ -1066,7 +1086,7 @@ const chrome = (() => {
     const el = $('.fotos'), h = $('.esq h5'); if (!el || !h) return;
     fotosSel = lerFotos();
     el.innerHTML = fotosSel.map(f => `<div class="foto" data-f="${f.id}"><img src="${esc(f.src)}">${usoFoto(f.id)}</div>`).join('') || '<div class="vazio">Nenhuma foto achada neste chat.</div>';
-    h.childNodes[0].textContent = 'Fotos que o cliente enviou (' + fotosSel.length + ') — clique para colocar na pessoa marcada ';
+    const nf = $('#nfotos'); if (nf) nf.textContent = '(' + fotosSel.length + ')';
     ligarFotos();
   }
   let notaBusca = '';
@@ -1219,7 +1239,7 @@ const chrome = (() => {
   function aplicarRascunho(final) {   // devolve ao menu o que estava sendo montado neste contato (as fotos são achadas pelo endereço)
     const r = rascunho; if (!r) return;
     if (!final && pessoas.some(p => p.foto)) return;
-    setN(r.n || 1); juntos = !!r.juntos && n === 2; jq = r.jq || '2f'; ajuste = r.ajuste || ''; mais = !!r.mais;
+    jq = r.jq || '2f'; setN(r.n || 1); juntos = !!r.juntos && (n === 2 || n === 3); ajuste = r.ajuste || ''; mais = !!r.mais;
     let faltou = false;
     pessoas = (r.pessoas || []).slice(0, n).map(q => {
       const f = q.fotoSrc ? fotosSel.find(x => x.src === q.fotoSrc) : null;
@@ -1660,7 +1680,13 @@ const chrome = (() => {
         if ($('#c-orig').dataset.sig !== sigO) { $('#c-orig').dataset.sig = sigO;
           $('#c-orig').innerHTML = fotos.some(Boolean) ? `<div class="orig">${fotos.filter(Boolean).map(u => `<img src="${u}" alt="">`).join('')}</div>` : '<div class="espera">Abrindo as fotos…</div>'; }
         // refazer: só para quem tem o pedido guardado neste computador
-        if (d.juntos && !$('#jqs').dataset.ok) { $('#jqs').dataset.ok = '1';
+        if (d.juntos && /^3-/.test(d.caso || '') && !$('#jqs').dataset.ok) { $('#jqs').dataset.ok = '1';   // 3 pessoas na mesma foto: marcar quem faleceu em cada posição
+          const pinta3 = () => {
+            $('#jqs').innerHTML = `<div class="jqs3">${['Esquerda', 'Meio', 'Direita'].map((nm, k) => `<div><span>${nm}</span><button data-j3="${k}" data-v="f" class="${jqRef[2 + k] === 'f' ? 'on' : ''}">Faleceu</button><button data-j3="${k}" data-v="v" class="${jqRef[2 + k] === 'v' ? 'on' : ''}">Viva</button></div>`).join('')}</div>`;
+            $('#jqs').querySelectorAll('[data-j3]').forEach(b => b.onclick = () => { const l = jqRef.slice(2).split(''); l[+b.dataset.j3] = b.dataset.v; if (!l.includes('f')) return; jqRef = '3-' + l.join(''); pinta3(); });
+          };
+          pinta3();
+        } else if (d.juntos && !/^3-/.test(d.caso || '') && !$('#jqs').dataset.ok) { $('#jqs').dataset.ok = '1';
           $('#jqs').innerHTML = `<div class="jqs">${['1f2v', '1v2f', '2f'].map(q => `<button data-jq="${q}" class="${q === jqRef ? 'on' : ''}">${NOMEJQ[q]}</button>`).join('')}</div>`;
           $('#jqs').querySelectorAll('[data-jq]').forEach(b => b.onclick = () => { jqRef = b.dataset.jq; $('#jqs').querySelectorAll('[data-jq]').forEach(x => x.classList.toggle('on', x === b)); }); }
         // 2 · prévia
@@ -1790,7 +1816,7 @@ const chrome = (() => {
       const d = await lerRascunho(ch);
       if (d && Array.isArray(d.pessoas)) {
         d.pessoas.forEach((q, i) => { if (q && q.fotoSrc) { const l = marcas.get(q.fotoSrc) || []; l.push('P' + (i + 1)); marcas.set(q.fotoSrc, l); } });
-        if (d.juntos && d.n === 2) marcas.forEach((l, k) => marcas.set(k, ['Mesma foto']));
+        if (d.juntos && (d.n === 2 || d.n === 3)) marcas.forEach((l, k) => marcas.set(k, ['Mesma foto']));
       }
       pintarMarcas();
     } catch (e) {}
@@ -1819,7 +1845,7 @@ const chrome = (() => {
       setN(Math.max(n, k)); pessoas[k - 1].foto = f.id; pessoas[k - 1].edit = null; pessoas[k - 1].editada = null; desenhar();
     } else {
       const d = (await lerRascunho(ch)) || { n: 1, juntos: false, jq: '2f', ajuste: '', mais: false, pessoas: [] };
-      d.n = Math.max(d.n || 1, k); if (d.n !== 2) d.juntos = false;
+      d.n = Math.max(d.n || 1, k); if (d.n !== 2 && d.n !== 3) d.juntos = false;
       while (d.pessoas.length < d.n) d.pessoas.push({ ...nova(), fotoSrc: null });
       d.pessoas[k - 1] = { ...d.pessoas[k - 1], foto: null, fotoSrc: src, edit: null, editada: null, busy: false };
       await chrome.storage.local.set({ [chaveRasc(ch)]: d });
