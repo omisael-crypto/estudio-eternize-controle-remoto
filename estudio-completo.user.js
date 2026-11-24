@@ -2,7 +2,7 @@
 // @name         Estúdio Eternize (completo)
 // @namespace    eternize.estudio.completo
 // @icon         https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/icone.png
-// @version      0.17.26
+// @version      0.17.28
 // @description  Mostra as fotos que o cliente enviou no chat da Leona, separa por pessoa e manda para o Estúdio Eternize.
 // @updateURL    https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
 // @downloadURL  https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
@@ -22,10 +22,10 @@
 // @connect      raw.githubusercontent.com
 // ==/UserScript==
 
-// Estúdio Eternize — controle remoto, versão 0.17.26 (gerado por leona/gerar.py)
+// Estúdio Eternize — controle remoto, versão 0.17.28 (gerado por leona/gerar.py)
 (function () {
 'use strict';
-const VERSAO_SCRIPT = '0.17.26';
+const VERSAO_SCRIPT = '0.17.28';
 // Faz o código da extensão (content.js) rodar no Tampermonkey: cria um "chrome" de mentira com as mesmas funções
 // (guardar dados, falar com o Estúdio deste computador). O código do menu é o MESMO da extensão.
 const chrome = (() => {
@@ -1161,13 +1161,17 @@ const chrome = (() => {
   }
   // ---- "Deu certo / Deu erro" no vídeo pronto: ajuda o Misael a achar qual texto funciona ----
   const MOTIVOS_AVAL = ['Jesus não abraçou', 'Não subiu a escada', 'Rosto mudou', 'Roupa mudou', 'Pessoa errada subiu', 'Outro'];
-  const avalLocal = {}; let avalAberto = '', avMot = '';
+  const avalLocal = {}; let avalAberto = '', avMot = '', refazerHook = null;   // refazerHook: o botão "Refazer homenagem" do Deu erro chama o refazer da tela aberta
   function pintarAval(vid, servidor) {
     const c = $('#avc'); if (!c) return;
     const a = (vid in avalLocal) ? avalLocal[vid] : servidor;
-    if (a) c.innerHTML = `<span class="${a === 'certo' ? 'ok' : 'bad'}" style="font-size:12px">${a === 'certo' ? 'Marcado: deu certo' : 'Marcado: deu erro'}</span><button class="avb" data-av="mudar">mudar</button>`;
-    else c.innerHTML = `<span style="font-size:12px">O vídeo ficou bom?</span><button class="avb ok" data-av="certo">Deu certo</button><button class="avb bad" data-av="erro">Deu erro</button>` + (avalAberto === vid ? (avMot ? `<div class="avm"><span style="font-size:12px;width:100%">Motivo: <b>${esc(avMot)}</b></span><input class="avn" id="avnota" maxlength="300" placeholder="Quer explicar melhor? (opcional)"><button class="avb bad" data-av="enviarerro">Marcar erro</button><button class="avb" data-av="voltar">voltar</button></div>` : `<div class="avm">${MOTIVOS_AVAL.map(m => `<button class="avb" data-mot="${esc(m)}">${esc(m)}</button>`).join('')}</div>`) : '');
+    let h; const refBt = '<button class="avb" data-av="refazer" title="Gera a prévia e o vídeo de novo">Refazer homenagem</button>';
+    if (a) h = `<span class="${a === 'certo' ? 'ok' : 'bad'}" style="font-size:12px">${a === 'certo' ? 'Marcado: deu certo' : 'Marcado: deu erro'}</span><button class="avb" data-av="mudar">mudar</button>` + (a === 'erro' ? refBt : '');
+    else h = `<span style="font-size:12px">O vídeo ficou bom?</span><button class="avb ok" data-av="certo">Deu certo</button><button class="avb bad" data-av="erro">Deu erro</button>` + (avalAberto === vid ? (avMot ? `<div class="avm"><span style="font-size:12px;width:100%">Motivo: <b>${esc(avMot)}</b></span><input class="avn" id="avnota" maxlength="300" placeholder="Quer explicar melhor? (opcional)"><button class="avb bad" data-av="enviarerro">Marcar erro</button><button class="avb" data-av="voltar">voltar</button>${refBt}</div>` : `<div class="avm">${MOTIVOS_AVAL.map(m => `<button class="avb" data-mot="${esc(m)}">${esc(m)}</button>`).join('')}${refBt}</div>`) : '');
+    if (c.dataset.h === h && c.firstChild) return;   // nada mudou: não redesenha (o campo de texto perdia o que o editor digitava)
+    c.dataset.h = h; c.innerHTML = h;
     c.querySelectorAll('[data-av]').forEach(b => { b.onclick = () => {
+      if (b.dataset.av === 'refazer') { if (refazerHook) refazerHook(); return; }
       if (b.dataset.av === 'mudar') { avalLocal[vid] = ''; avalAberto = ''; avMot = ''; return pintarAval(vid, servidor); }
       if (b.dataset.av === 'erro') { avalAberto = avalAberto === vid ? '' : vid; avMot = ''; return pintarAval(vid, servidor); }
       if (b.dataset.av === 'voltar') { avMot = ''; return pintarAval(vid, servidor); }
@@ -1530,6 +1534,31 @@ const chrome = (() => {
       return ' (O fluxo de finalização não disparou: ' + r.status + '. Dispare pelo chat.)';
     } catch (e) { console.warn('[Estúdio] fluxo de finalização:', e); return ''; }
   }
+  // Depois de ENVIAR A PRÉVIA: dispara o fluxo da Leona que manda as mensagens de cobrança (config fluxo_leona_previa; vazio = não faz nada).
+  // Só Brasil por enquanto (México e aniversário ficam de fora). Uma vez por chat a cada 24 h: "Refazer prévia" não cobra o cliente de novo.
+  async function dispararFluxoPrevia(id, chatId) {
+    const k = 'fluxop_chat_' + chatId;
+    if (/^aniv-/.test(casosPedido[id] || '')) return '';
+    try {
+      const ult = (await chrome.storage.local.get(k))[k]; if (ult && Date.now() - ult < 86400000) return '';
+      const c = await chrome.runtime.sendMessage({ tipo: 'leona_config' }).catch(() => null);
+      const fluxo = c && c.dados && String(c.dados.fluxo_previa || '').replace(/\D/g, ''); if (!fluxo) return '';
+      const nomeFluxo = String((c && c.dados && c.dados.fluxo_previa_nome) || '');
+      const soChat = c && c.dados && String(c.dados.so_chat || '').replace(/\D/g, ''); if (soChat && String(chatId) !== soChat) return '';   // fase de teste: só nesse chat
+      let tk = ''; try { tk = janelaPagina.localStorage.getItem('auth_token') || ''; } catch (e) {}
+      if (!tk) return '';
+      await chrome.storage.local.set({ [k]: Date.now() });
+      const r = await fetch(API_LEONA + '/flows/' + fluxo + '/trigger', { method: 'POST',
+        headers: { Authorization: /^Bearer /i.test(tk) ? tk : 'Bearer ' + tk, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: /^\d+$/.test(String(chatId)) ? Number(chatId) : chatId }) });
+      if (r.ok) return ' Fluxo de cobrança disparado.';
+      if (chatAtual().id === String(chatId) && await dispararFluxoPelaTela(nomeFluxo)) return ' Fluxo de cobrança disparado (pelo botão do chat).';
+      try { chrome.storage.local.remove(k); } catch (e) {}
+      let t = ''; try { t = (await r.text()).slice(0, 120); } catch (e) {}
+      console.warn('[Estúdio] fluxo de cobrança recusado (' + r.status + '): ' + t);
+      return ' (O fluxo de cobrança não disparou: ' + r.status + '. Dispare pelo chat.)';
+    } catch (e) { console.warn('[Estúdio] fluxo de cobrança:', e); return ''; }
+  }
   async function devolverReal(id, chatId, tipo, soBaixar, forcar) {
     const nomeTipo = tipo === 'video' ? 'o vídeo' : 'a prévia';
     try {
@@ -1542,6 +1571,7 @@ const chrome = (() => {
           const jaTinha = !!(entregasAtual && entregasAtual[tipo]);
           chrome.runtime.sendMessage({ tipo: 'entregue', id, arquivo: tipo }); msgEnvio = 'Enviei ' + nomeTipo + ' ao cliente.';
           if (tipo === 'video' && !jaTinha) { msgEnvio += await dispararFluxoFinal(id, chatId); }
+          if (tipo !== 'video') { msgEnvio += await dispararFluxoPrevia(id, chatId); }
           return;
         } catch (e) {
           if (chatAtual().id !== chatId) { msgEnvio = '!Não consegui enviar ' + nomeTipo + ' ao chat #' + chatId + ': ' + (e && e.message || e) + ' Abra esse chat e use o botão Enviar.'; return; }
@@ -1561,7 +1591,7 @@ const chrome = (() => {
       }
       msgEnvio = 'Anexado. Apertando enviar…'; mostrarMsg();
       const res = await apertarEnviar(chatId, tipo === 'video' ? 25000 : 12000);
-      if (res === 'ok') { const jaTinha = !!(entregasAtual && entregasAtual[tipo]); chrome.runtime.sendMessage({ tipo: 'entregue', id, arquivo: tipo }); msgEnvio = 'Enviei ' + nomeTipo + ' ao cliente.'; if (tipo === 'video' && !jaTinha) msgEnvio += await dispararFluxoFinal(id, chatId); }
+      if (res === 'ok') { const jaTinha = !!(entregasAtual && entregasAtual[tipo]); chrome.runtime.sendMessage({ tipo: 'entregue', id, arquivo: tipo }); msgEnvio = 'Enviei ' + nomeTipo + ' ao cliente.'; if (tipo === 'video' && !jaTinha) msgEnvio += await dispararFluxoFinal(id, chatId); if (tipo !== 'video') msgEnvio += await dispararFluxoPrevia(id, chatId); }
       else if (res === 'chat') msgEnvio = '!Você trocou de chat antes de enviar. Nada foi enviado ao cliente errado; volte ao chat #' + chatId + ' e tente de novo.';
       else msgEnvio = '!Anexei ' + nomeTipo + ', mas não achei o botão Enviar. Aperte você.';
     } catch (e) {
@@ -1704,7 +1734,7 @@ const chrome = (() => {
         if ($('#c-orig').dataset.sig !== sigO) { $('#c-orig').dataset.sig = sigO;
           $('#c-orig').innerHTML = fotos.some(Boolean) ? `<div class="orig">${fotos.filter(Boolean).map(u => `<img src="${u}" alt="">`).join('')}</div>` : '<div class="espera">Abrindo as fotos…</div>'; }
         // refazer: só para quem tem o pedido guardado neste computador
-        if (d.juntos && /^3-/.test(d.caso || '') && !$('#jqs').dataset.ok) { $('#jqs').dataset.ok = '1';   // 3 pessoas na mesma foto: marcar quem faleceu em cada posição
+        if (/^3-/.test(d.caso || '') && !$('#jqs').dataset.ok) { $('#jqs').dataset.ok = '1';   // 3 pessoas na mesma foto: marcar quem faleceu em cada posição
           const pinta3 = () => {
             $('#jqs').innerHTML = `<div class="jqs3">${['Esquerda', 'Meio', 'Direita'].map((nm, k) => `<div><span>${nm}</span><button data-j3="${k}" data-v="f" class="${jqRef[2 + k] === 'f' ? 'on' : ''}">Faleceu</button><button data-j3="${k}" data-v="v" class="${jqRef[2 + k] === 'v' ? 'on' : ''}">Viva</button></div>`).join('')}</div>`;
             $('#jqs').querySelectorAll('[data-j3]').forEach(b => b.onclick = () => { const l = jqRef.slice(2).split(''); l[+b.dataset.j3] = b.dataset.v; if (!l.includes('f')) return; jqRef = '3-' + l.join(''); pinta3(); });
@@ -1787,13 +1817,14 @@ const chrome = (() => {
       const ped = JSON.parse(JSON.stringify(g)); ped.opcoes = ped.opcoes || {}; ped.opcoes.direto = direto;
       const aj2 = (($('#r-aj') || {}).value || '').trim(); if (aj2) ped.opcoes.ajuste = aj2;   // o que o editor escreveu em "Quer mudar algo?" entra na nova prévia/vídeo
       ped.refazer_de = id;   // é a MESMA homenagem (mesmo cliente): o Estúdio mantém o nome e não conta como pedido novo
-      if (ped.juntos && jqRef) ped.caso = jqRef;
+      if (jqRef && (ped.juntos || (/^3-/.test(jqRef) && /^3-/.test(ped.caso || '')))) ped.caso = jqRef;
       m.textContent = 'Enviando ao Estúdio…';
       let r; try { r = await chrome.runtime.sendMessage({ tipo: 'gerar', pedido: ped }); } catch (e) { r = { erro: String(e) }; }
       if (!r || !r.ok) { m.className = 'stt bad'; m.textContent = (r && r.erro) || 'Não achei o Estúdio.'; return; }
       try { chrome.storage.local.set({ ['ped_' + r.id]: ped }); if (autoEnvio) chrome.storage.local.set({ ['auto_' + r.id]: direto ? 'video' : 'previa' }); } catch (e) {}   // com a chave do envio automático ligada, refazer também envia sozinho
       guardar(chatId, r.id); acompanhar(r.id, chatId);
     };
+    refazerHook = () => refazer(true);
     $('#r-direto').onclick = () => refazer(true);
     $('#r-previa').onclick = () => refazer(false);
     pinta(); relogio = setInterval(pinta, 3000);
