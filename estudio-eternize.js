@@ -1,7 +1,7 @@
-// Estúdio Eternize — controle remoto, versão 0.17.23 (gerado por leona/gerar.py)
+// Estúdio Eternize — controle remoto, versão 0.17.24 (gerado por leona/gerar.py)
 (function () {
 'use strict';
-const VERSAO_SCRIPT = '0.17.23';
+const VERSAO_SCRIPT = '0.17.24';
 // Faz o código da extensão (content.js) rodar no Tampermonkey: cria um "chrome" de mentira com as mesmas funções
 // (guardar dados, falar com o Estúdio deste computador). O código do menu é o MESMO da extensão.
 const chrome = (() => {
@@ -72,7 +72,7 @@ const chrome = (() => {
       if (msg.tipo === 'status') { const r = await estudio('/api/leona/status?id=' + encodeURIComponent(msg.id)); return { ok: r.status === 200, dados: r.json }; }
       if (msg.tipo === 'arquivo') {
         const porta = await acharPorta();
-        const r = await pedir('http://127.0.0.1:' + porta + '/api/leona/arquivo?id=' + encodeURIComponent(msg.id) + '&tipo=' + encodeURIComponent(msg.arquivo) + (msg.n != null ? '&n=' + Number(msg.n) : ''), { binario: true, tempo: 180000 });
+        const r = await pedir('http://127.0.0.1:' + porta + '/api/leona/arquivo?id=' + encodeURIComponent(msg.id) + '&tipo=' + encodeURIComponent(msg.arquivo) + (msg.n != null ? '&n=' + Number(msg.n) : '') + (msg.ver ? '&ver=1' : ''), { binario: true, tempo: 180000 });
         if (r.status !== 200) {
           let erro = 'O Estúdio respondeu ' + r.status + '.';
           try { erro = JSON.parse(new TextDecoder().decode(r.response)).erro || erro; } catch (e) {}
@@ -1616,7 +1616,7 @@ const chrome = (() => {
       const ch = tipo === 'original' ? 'orig' + n : tipo;
       if (previas[id][ch] !== undefined) return;
       previas[id][ch] = null;
-      try { const r = await chrome.runtime.sendMessage({ tipo: 'arquivo', id, arquivo: tipo, n });
+      try { const r = await chrome.runtime.sendMessage({ tipo: 'arquivo', id, arquivo: tipo, n, ver: tipo === 'previa' ? 1 : 0 });   // ver: só mostrar (original, sem esperar o ffmpeg)
         if (r && r.ok) { const bin = atob(r.b64), by = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) by[i] = bin.charCodeAt(i);
           previas[id][ch] = URL.createObjectURL(new Blob([by], { type: String(r.mime).split(';')[0] })); delete previas[id]['err_' + ch]; }
         else { previas[id][ch] = ''; previas[id]['err_' + ch] = (r && r.erro) || 'O Estúdio não respondeu.'; } } catch (e) { previas[id][ch] = ''; previas[id]['err_' + ch] = String((e && e.message) || e); }
@@ -1673,7 +1673,7 @@ const chrome = (() => {
         const pp = pe === 'ok' ? 'Pronto' : pe === 'erro' ? 'Erro' : (d.previa && d.previa.estado === 'fila') ? 'Na fila' : d.previa ? 'Gerando' : 'Enviando';
         $('#p-pill').innerHTML = `<span class="pill ${pe}">${pp}</span>`;
         const cp = $('#c-previa'), up = previas[id].previa;
-        const sigP = pronta ? 'img|' + up + '|' + (previas[id].err_previa || '') : pe + '|' + (d.previa ? d.previa.estado : 'x' + (d.estado || '') + (demora ? 'd' : '') + (erroPed ? d.erro : '')) + '|' + (pe === 'agora' && !dupPed ? cron('previa', d.previa ? d.previa.inicio : d.inicio) : '');
+        const sigP = pronta ? 'img|' + up + '|' + (previas[id].err_previa || '') : pe + '|' + (d.previa ? d.previa.estado : 'x' + (d.estado || '') + (demora ? 'd' : '') + (erroPed ? d.erro : ''));   // o cronômetro não entra na assinatura: só o número muda (a roda de espera não recomeça a cada 3 s)
         if (cp.dataset.sig !== sigP) { cp.dataset.sig = sigP;
           cp.innerHTML = pronta && up ? `<img id="im-previa" src="${up}" alt="Prévia">`
             : pronta ? '<div class="espera">' + (previas[id].err_previa ? 'Não consegui abrir a prévia: ' + esc(previas[id].err_previa) + '<br><small>Tentando de novo…</small>' : 'Abrindo a prévia…') + '</div>'
@@ -1681,6 +1681,7 @@ const chrome = (() => {
             : erroPed ? `<div class="espera erro">${esc(d.erro || 'Não consegui preparar o pedido.')}<br>Use "Gerar homenagem" ao lado para tentar de novo.</div>`
             : pe === 'erro' ? `<div class="espera erro">A prévia deu erro.</div>`
             : `<div class="espera"><i class="gira"></i><b>${cron('previa', d.previa ? d.previa.inicio : d.inicio)}</b>${msgEspera}${demora && !d.previa ? '<br><small>Está demorando. Confira se o aplicativo do Estúdio está aberto e com a conta entrada.</small>' : ''}</div>`; }
+        if (pe === 'agora' && !dupPed) { const tb = cp.querySelector('.espera b'); const t = cron('previa', d.previa ? d.previa.inicio : d.inicio); if (tb && tb.textContent !== t) tb.textContent = t; }
         cp.querySelectorAll('[data-rep]').forEach(b => b.onclick = async () => {   // "Pedir de novo" / "Cancelar" (o Estúdio avisou que o pedido é repetido)
           cp.querySelectorAll('[data-rep]').forEach(x => { x.disabled = true; });
           const r = await chrome.runtime.sendMessage({ tipo: 'repetir', id, cancelar: b.dataset.rep === 'nao' }).catch(() => null);
@@ -1698,13 +1699,14 @@ const chrome = (() => {
           const ve = !d.video ? 'espera' : videoPronto ? 'ok' : d.video.estado === 'erro' ? 'erro' : 'agora';
           $('#v-pill').innerHTML = ve === 'espera' ? '' : `<span class="pill ${ve}">${ve === 'ok' ? 'Pronto' : ve === 'erro' ? 'Erro' : d.video.estado === 'fila' ? 'Na fila' : 'Gerando'}</span>`;
           const uv = previas[id].video;
-          const sigV = videoPronto ? 'vid|' + uv : ve + '|' + (ve === 'agora' ? cron('video', d.video.inicio) : '');
+          const sigV = videoPronto ? 'vid|' + uv : ve;
           if (cv.dataset.sig !== sigV) { cv.dataset.sig = sigV;
             cv.innerHTML = videoPronto && uv ? `<video id="im-video" src="${uv}" controls muted loop playsinline autoplay></video>`
               : videoPronto ? '<div class="espera">Abrindo o vídeo…</div>'
               : ve === 'erro' ? '<div class="espera erro">O vídeo deu erro.</div>'
               : ve === 'agora' ? `<div class="espera"><i class="gira"></i><b>${cron('video', d.video.inicio)}</b>Gerando o vídeo…</div>`
               : '<div class="espera">O vídeo começa quando a prévia ficar pronta.</div>'; }
+          if (ve === 'agora') { const tb = cv.querySelector('.espera b'); const t = cron('video', d.video.inicio); if (tb && tb.textContent !== t) tb.textContent = t; }
           $('#e-video').disabled = !videoPronto; $('#f-video').disabled = !(videoPronto && uv); $('#b-video').disabled = !videoPronto;
           $('#e-video').textContent = ent.video ? 'Enviar o vídeo de novo' : 'Enviar vídeo ao cliente';
           $('#s-video').className = 'stt' + (ent.video ? ' ok' : ''); $('#s-video').innerHTML = (ent.video ? '<span class="env">' + IC.check + ' Enviado ao cliente às ' + esc(hora(ent.video)) + '</span>' : '') + (videoPronto && d.video && d.video.id ? '<span class="avc" id="avc"></span>' : '');
