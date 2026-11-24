@@ -2,7 +2,7 @@
 // @name         Estúdio Eternize (completo)
 // @namespace    eternize.estudio.completo
 // @icon         https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/icone.png
-// @version      0.17.28
+// @version      0.17.29
 // @description  Mostra as fotos que o cliente enviou no chat da Leona, separa por pessoa e manda para o Estúdio Eternize.
 // @updateURL    https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
 // @downloadURL  https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
@@ -22,10 +22,10 @@
 // @connect      raw.githubusercontent.com
 // ==/UserScript==
 
-// Estúdio Eternize — controle remoto, versão 0.17.28 (gerado por leona/gerar.py)
+// Estúdio Eternize — controle remoto, versão 0.17.29 (gerado por leona/gerar.py)
 (function () {
 'use strict';
-const VERSAO_SCRIPT = '0.17.28';
+const VERSAO_SCRIPT = '0.17.29';
 // Faz o código da extensão (content.js) rodar no Tampermonkey: cria um "chrome" de mentira com as mesmas funções
 // (guardar dados, falar com o Estúdio deste computador). O código do menu é o MESMO da extensão.
 const chrome = (() => {
@@ -87,6 +87,10 @@ const chrome = (() => {
       if (msg.tipo === 'gerar') {
         const r = await estudio('/api/leona/pedido', { method: 'POST', body: JSON.stringify(msg.pedido), tempo: 120000 });
         return { ok: r.status === 200 && !!(r.json && r.json.ok), id: r.json && r.json.id, erro: (r.json && r.json.erro) || (r.status !== 200 ? 'O Estúdio respondeu ' + r.status + '.' : '') };
+      }
+      if (msg.tipo === 'video_novo') {
+        const r = await estudio('/api/video', { method: 'POST', body: JSON.stringify({ previa_id: msg.previa_id, ajuste: msg.ajuste, forcar: true }), tempo: 120000 });
+        return { ok: r.status === 200 && !!(r.json && r.json.pedido), erro: (r.json && r.json.erro) || (r.status !== 200 ? 'O Estúdio respondeu ' + r.status + '.' : '') };
       }
       if (msg.tipo === 'ponto') { const r = await estudio('/api/ponto/meu'); return { ok: r.status === 200, dados: r.json, porta: r.porta, erro: (r.json && r.json.erro) || '' }; }
       if (msg.tipo === 'ponto_acao') {
@@ -1352,6 +1356,7 @@ const chrome = (() => {
         if (novo && !vendo && avisos[ch] !== novo && !(avisos[ch] === 'video')) { avisos[ch] = novo; try { chrome.storage.local.set({ ['aviso_' + ch]: novo }); } catch (e) {} }
         // envio automático ("... e enviar"): quando o arquivo escolhido fica pronto e o chat está aberto, vai sozinho para o cliente
         let alvo = ''; try { alvo = (await chrome.storage.local.get('auto_' + id))['auto_' + id] || ''; } catch (e) {}
+        if (alvo === 'video') { try { chrome.storage.local.remove('auto_' + id); } catch (e) {} alvo = ''; }   // o vídeo NÃO vai sozinho: o editor confere e clica em Enviar
         if (alvo) {
           const vidAv = d.video && d.video.id ? ((d.video.id in avalLocal) ? avalLocal[d.video.id] : (d.video.aval || '')) : '';
           const pronto = alvo === 'video' ? (videoPronto && (vidAv === 'certo' || d.perguntar_antes === false)) : pronta;   // o vídeo só vai sozinho depois que o editor marca "Deu certo"
@@ -1627,7 +1632,8 @@ const chrome = (() => {
         <section class="col"><div class="ct"><span>1 · Original e refazer</span></div>
           <div class="cartao" id="c-orig"><div class="espera">Abrindo as fotos…</div></div>
           <div id="jqs" class="jqs-l"></div>
-          <div class="aj"><label for="r-aj">Quer mudar algo?</label><input id="r-aj" maxlength="300" placeholder="Ex.: trocar a roupa, tirar o copo da mão"></div>
+          <div class="aj"><label for="r-aj">Corrigir o prompt</label><input id="r-aj" maxlength="300" placeholder="Ex.: a pessoa do meio não deve subir a escada"></div>
+          <div class="lin2"><button class="gr" id="r-corrige" title="Gera outro vídeo da mesma prévia com a sua correção no prompt">Gerar vídeo corrigido</button></div>
           <div class="lin2"><button class="gr" id="r-direto">Gerar homenagem</button><button class="gr sec" id="r-previa">Só a prévia</button></div>
           <div class="stt" id="r-msg"></div></section>
         <section class="col"><div class="ct"><span>2 · Prévia · cliente</span><span id="p-pill"></span></div>
@@ -1789,12 +1795,12 @@ const chrome = (() => {
           if (ve === 'agora') { const tb = cv.querySelector('.espera b'); const t = cron('video', d.video.inicio); if (tb && tb.textContent !== t) tb.textContent = t; }
           $('#e-video').disabled = !videoPronto; $('#f-video').disabled = !(videoPronto && uv); $('#b-video').disabled = !videoPronto;
           $('#e-video').textContent = ent.video ? 'Enviar o vídeo de novo' : 'Enviar vídeo ao cliente';
-          $('#s-video').className = 'stt' + (ent.video ? ' ok' : ''); $('#s-video').innerHTML = (ent.video ? '<span class="env">' + IC.check + ' Enviado ao cliente às ' + esc(hora(ent.video)) + '</span>' : '') + (videoPronto && d.video && d.video.id ? '<span class="avc" id="avc"></span>' : '');
+          $('#s-video').className = 'stt' + (ent.video ? ' ok' : ''); $('#s-video').innerHTML = (ent.video ? '<span class="env">' + IC.check + ' Enviado ao cliente às ' + esc(hora(ent.video)) + '</span>' : '') + '';
           if (videoPronto && d.video && d.video.id) { ultimoVideo = { id: d.video.id, aval: d.video.aval || '', perguntar: d.perguntar_antes !== false }; pintarAval(d.video.id, d.video.aval || ''); }
         }
         if (!direto) { $('#e-video').disabled = true; $('#f-video').disabled = true; $('#b-video').disabled = true; }
         $('#erro').innerHTML = erro ? `<div class="erro">${esc(erro)}</div>` : '';
-        $('#dicaenv').textContent = (autoDe && !ent[autoDe]) ? 'Envio automático ligado: ' + (autoDe === 'video' ? 'o vídeo' : 'a prévia') + (autoDe === 'video' && ultimoVideo.perguntar ? ' vai ao cliente depois que você marcar "Deu certo"' : ' vai ao cliente sozinho quando ficar pronta') + '.' : (pronta || videoPronto) ? (autoEnviar ? 'Ao clicar em Enviar, o arquivo vai direto para o chat de origem, mesmo que você esteja em outro.' : 'O arquivo é colocado no chat de origem; você confere e aperta enviar.') : '';
+        $('#dicaenv').textContent = (autoDe === 'previa' && !ent.previa) ? 'Envio automático ligado: a prévia vai ao cliente sozinha quando ficar pronta.' : (pronta || videoPronto) ? (videoPronto ? 'Confira o vídeo. Se ficou certo, clique em Enviar vídeo ao cliente; se algo deu errado, escreva a correção em "Corrigir o prompt" e gere um vídeo novo.' : autoEnviar ? 'Ao clicar em Enviar, o arquivo vai direto para o chat de origem, mesmo que você esteja em outro.' : 'O arquivo é colocado no chat de origem; você confere e aperta enviar.') : '';
         mostrarMsg();
       };
       ultimaPintura();
@@ -1805,7 +1811,7 @@ const chrome = (() => {
     $('#e-previa').onclick = () => devolver(id, chatId, 'previa', false);
     $('#b-previa').onclick = () => devolver(id, chatId, 'previa', true);
     $('#f-previa').onclick = () => tela(null, '#im-previa');
-    $('#e-video').onclick = async () => { if (await confirmarVideo()) devolver(id, chatId, 'video', false); };
+    $('#e-video').onclick = () => devolver(id, chatId, 'video', false);
     $('#b-video').onclick = () => devolver(id, chatId, 'video', true);
     $('#f-video').onclick = () => tela(null, '#im-video');
     // refazer: manda o mesmo pedido de novo (com o caso escolhido, na foto única), igual aos botões da primeira coluna do Estúdio
@@ -1815,7 +1821,6 @@ const chrome = (() => {
       let g; try { const k = 'ped_' + id; g = (await chrome.storage.local.get(k))[k]; } catch (e) {}
       if (!g) { m.className = 'stt bad'; m.textContent = 'Este pedido é antigo: use "Nova homenagem neste chat".'; return; }
       const ped = JSON.parse(JSON.stringify(g)); ped.opcoes = ped.opcoes || {}; ped.opcoes.direto = direto;
-      const aj2 = (($('#r-aj') || {}).value || '').trim(); if (aj2) ped.opcoes.ajuste = aj2;   // o que o editor escreveu em "Quer mudar algo?" entra na nova prévia/vídeo
       ped.refazer_de = id;   // é a MESMA homenagem (mesmo cliente): o Estúdio mantém o nome e não conta como pedido novo
       if (jqRef && (ped.juntos || (/^3-/.test(jqRef) && /^3-/.test(ped.caso || '')))) ped.caso = jqRef;
       m.textContent = 'Enviando ao Estúdio…';
@@ -1824,6 +1829,21 @@ const chrome = (() => {
       try { chrome.storage.local.set({ ['ped_' + r.id]: ped }); if (autoEnvio) chrome.storage.local.set({ ['auto_' + r.id]: direto ? 'video' : 'previa' }); } catch (e) {}   // com a chave do envio automático ligada, refazer também envia sozinho
       guardar(chatId, r.id); acompanhar(r.id, chatId);
     };
+    // "Corrigir o prompt": o editor escreve o que deu errado e o Estúdio gera OUTRO vídeo da mesma prévia com essa correção no começo do prompt.
+    // Quando esse vídeo for enviado ao cliente, o Estúdio registra a correção (Administração > Prompts dos editores) para melhorar o prompt padrão.
+    const corrigir = async () => {
+      const m = $('#r-msg'); m.className = 'stt';
+      const txt = (($('#r-aj') || {}).value || '').trim();
+      if (!txt) { m.className = 'stt bad'; m.textContent = 'Escreva a correção do prompt: o que deu errado no vídeo.'; return; }
+      const pv = dados && dados.previa;
+      if (!pv || !pv.id || pv.id === 'pronta' || pv.estado !== 'pronto') { m.className = 'stt bad'; m.textContent = 'A correção vale quando a prévia já está pronta. Para prévia já enviada, use Gerar homenagem.'; return; }
+      const bt = $('#r-corrige'); bt.disabled = true; m.textContent = 'Pedindo o vídeo corrigido…';
+      let r; try { r = await chrome.runtime.sendMessage({ tipo: 'video_novo', previa_id: pv.id, ajuste: txt }); } catch (e) { r = { erro: String(e) }; }
+      bt.disabled = false;
+      if (!r || !r.ok) { m.className = 'stt bad'; m.textContent = (r && r.erro) || 'Não achei o Estúdio.'; return; }
+      $('#r-aj').value = ''; acompanhar(id, chatId);
+    };
+    $('#r-corrige').onclick = corrigir;
     refazerHook = () => refazer(true);
     $('#r-direto').onclick = () => refazer(true);
     $('#r-previa').onclick = () => refazer(false);
