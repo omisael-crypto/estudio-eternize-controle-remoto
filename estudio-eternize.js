@@ -1,7 +1,7 @@
-// Estúdio Eternize — controle remoto, versão 0.17.34 (gerado por leona/gerar.py)
+// Estúdio Eternize — controle remoto, versão 0.17.35 (gerado por leona/gerar.py)
 (function () {
 'use strict';
-const VERSAO_SCRIPT = '0.17.34';
+const VERSAO_SCRIPT = '0.17.35';
 // Faz o código da extensão (content.js) rodar no Tampermonkey: cria um "chrome" de mentira com as mesmas funções
 // (guardar dados, falar com o Estúdio deste computador). O código do menu é o MESMO da extensão.
 const chrome = (() => {
@@ -84,7 +84,7 @@ const chrome = (() => {
       if (msg.tipo === 'status') { const r = await estudio('/api/leona/status?id=' + encodeURIComponent(msg.id)); return { ok: r.status === 200, dados: r.json }; }
       if (msg.tipo === 'arquivo') {
         const porta = await acharPorta();
-        const r = await pedir('http://127.0.0.1:' + porta + '/api/leona/arquivo?id=' + encodeURIComponent(msg.id) + '&tipo=' + encodeURIComponent(msg.arquivo) + (msg.n != null ? '&n=' + Number(msg.n) : '') + (msg.ver ? '&ver=1' : ''), { binario: true, tempo: 180000 });
+        const r = await pedir('http://127.0.0.1:' + porta + '/api/leona/arquivo?id=' + encodeURIComponent(msg.id) + '&tipo=' + encodeURIComponent(msg.arquivo) + (msg.n != null ? '&n=' + Number(msg.n) : '') + (msg.ver ? '&ver=1' : '') + (msg.vid && /^v\d+$/.test(msg.vid) ? '&vid=' + msg.vid : ''), { binario: true, tempo: 180000 });
         if (r.status !== 200) {
           let erro = 'O Estúdio respondeu ' + r.status + '.';
           try { erro = JSON.parse(new TextDecoder().decode(r.response)).erro || erro; } catch (e) {}
@@ -1406,7 +1406,7 @@ const chrome = (() => {
   })();
 
   async function pegarArquivo(id, tipo) {
-    const r = await chrome.runtime.sendMessage({ tipo: 'arquivo', id, arquivo: tipo });
+    const r = await chrome.runtime.sendMessage({ tipo: 'arquivo', id, arquivo: tipo, vid: tipo === 'video' ? (videoMostrado[id] || '') : '' });   // vid: o vídeo que o editor está VENDO é o que vai
     if (!r || !r.ok) throw new Error((r && r.erro) || 'Não consegui buscar o arquivo no Estúdio.');
     const bin = atob(r.b64), bytes = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
@@ -1633,7 +1633,8 @@ const chrome = (() => {
   // ---------- andamento: a tela de detalhe do Estúdio, adaptada à extensão ----------
   let cronAtual = null;
   const casosPedido = {};   // pedido -> caso (o fluxo final da Leona é só de falecidos)
-  const previas = {};   // pedido -> { previa, video, orig: [urls] } (buscados uma vez só, para o vídeo não reiniciar)
+  const previas = {};   // pedido -> { previa, video, orig: [urls] } (buscados uma vez só, para o vídeo não reiniciar; recomeça quando o pedido ganha prévia/vídeo NOVO)
+  const videoMostrado = {};   // pedido -> id do vídeo que está na tela: é ESSE que o botão Enviar manda ao cliente
   const mmss = ms => { const t = Math.max(0, Math.round(ms / 1000)); return String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0'); };
   const legenda = (c, juntos) => {
     if (!c) return '';
@@ -1721,7 +1722,9 @@ const chrome = (() => {
       const ch = tipo === 'original' ? 'orig' + n : tipo;
       if (previas[id][ch] !== undefined) return;
       previas[id][ch] = null;
-      try { const r = await chrome.runtime.sendMessage({ tipo: 'arquivo', id, arquivo: tipo, n, ver: tipo === 'previa' ? 1 : 0 });   // ver: só mostrar (original, sem esperar o ffmpeg)
+      const alvo = previas[id]['id_' + ch];   // vídeo/prévia que estamos buscando; se o pedido ganhar um NOVO enquanto baixa, esta resposta é descartada
+      try { const r = await chrome.runtime.sendMessage({ tipo: 'arquivo', id, arquivo: tipo, n, ver: tipo === 'previa' ? 1 : 0, vid: tipo === 'video' ? (videoMostrado[id] || '') : '' });   // ver: só mostrar (original, sem esperar o ffmpeg)
+        if (previas[id]['id_' + ch] !== alvo) { delete previas[id][ch]; return; }
         if (r && r.ok) { const bin = atob(r.b64), by = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) by[i] = bin.charCodeAt(i);
           previas[id][ch] = URL.createObjectURL(new Blob([by], { type: String(r.mime).split(';')[0] })); delete previas[id]['err_' + ch]; }
         else { previas[id][ch] = ''; previas[id]['err_' + ch] = (r && r.erro) || 'O Estúdio não respondeu.'; } } catch (e) { previas[id][ch] = ''; previas[id]['err_' + ch] = String((e && e.message) || e); }
@@ -1748,6 +1751,14 @@ const chrome = (() => {
       const pronta = !!(d.previa && (d.previa.estado === 'pronto' || d.previa.estado === 'pronta'));
       const videoPronto = !!(direto && d.video && d.video.estado === 'pronto');
       const erro = d.estado === 'duplicado' && !d.previa ? '' : (d.erro || (d.previa && d.previa.erro) || (d.video && d.video.erro) || '');   // "duplicado" não é erro: é uma pergunta com botões, e a consulta continua
+      videoMostrado[id] = (d.video && d.video.id) || '';
+      for (const [ch, o] of [['previa', d.previa], ['video', d.video]]) {   // Refazer só o vídeo / Tentar novamente criam prévia ou vídeo NOVO neste mesmo pedido: o que estava guardado é de outro
+        const idc = (o && o.id) || '', k = 'id_' + ch;
+        if (previas[id][k] !== idc) {
+          if (previas[id][k] !== undefined && idc) { try { if (previas[id][ch]) URL.revokeObjectURL(previas[id][ch]); } catch (e) {} delete previas[id][ch]; delete previas[id]['err_' + ch]; delete previas[id]['n_' + ch]; if (ultimaPintura) { const cc = $(ch === 'video' ? '#c-video' : '#c-previa'); if (cc) cc.dataset.sig = ''; } }
+          previas[id][k] = idc;
+        }
+      }
       if (pronta) buscar('previa');
       if (videoPronto) buscar('video');
       for (let k = 0; k < (d.fotos || 0); k++) buscar('original', k);
