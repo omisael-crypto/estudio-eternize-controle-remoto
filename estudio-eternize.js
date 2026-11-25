@@ -1,7 +1,7 @@
-// Estúdio Eternize — controle remoto, versão 0.17.32 (gerado por leona/gerar.py)
+// Estúdio Eternize — controle remoto, versão 0.17.33 (gerado por leona/gerar.py)
 (function () {
 'use strict';
-const VERSAO_SCRIPT = '0.17.32';
+const VERSAO_SCRIPT = '0.17.33';
 // Faz o código da extensão (content.js) rodar no Tampermonkey: cria um "chrome" de mentira com as mesmas funções
 // (guardar dados, falar com o Estúdio deste computador). O código do menu é o MESMO da extensão.
 const chrome = (() => {
@@ -67,6 +67,10 @@ const chrome = (() => {
       if (msg.tipo === 'video_novo') {
         const r = await estudio('/api/video', { method: 'POST', body: JSON.stringify({ previa_id: msg.previa_id, ajuste: msg.ajuste, forcar: true }), tempo: 120000 });
         return { ok: r.status === 200 && !!(r.json && r.json.pedido), erro: (r.json && r.json.erro) || (r.status !== 200 ? 'O Estúdio respondeu ' + r.status + '.' : '') };
+      }
+      if (msg.tipo === 'previa_correcao') {
+        const r = await estudio('/api/previa-correcao', { method: 'POST', body: JSON.stringify({ id: msg.id, correcao: msg.correcao }) });
+        return { ok: r.status === 200 && !!(r.json && r.json.ok), erro: (r.json && r.json.erro) || '' };
       }
       if (msg.tipo === 'diario') {
         const r = await estudio('/api/leona/diario', { method: 'POST', body: JSON.stringify({ eventos: msg.eventos }) });
@@ -1873,7 +1877,12 @@ const chrome = (() => {
       const bt = $('#r-corrige');
       if (pv.id !== 'pronta' && pv.estado !== 'pronto') {
         if (pv.estado === 'erro' || pv.erro) { m.className = 'stt bad'; m.textContent = 'A prévia deu erro. Use Só a prévia (ou Tentar novamente) antes de corrigir o vídeo.'; return; }
-        corrPendente = txt; diario('corrige_guardada', { n: txt.length });   // a prévia ainda está gerando: guarda e pede o vídeo corrigido quando ela ficar pronta
+        let rc; try { rc = await chrome.runtime.sendMessage({ tipo: 'previa_correcao', id: pv.id, correcao: txt }); } catch (e) { rc = null; }
+        if (rc && rc.ok) {   // o Estúdio vai pedir o vídeo automático desta homenagem já com a correção: não sai vídeo a mais
+          diario('corrige_guardada', { n: txt.length, via: 'direto' });
+          $('#r-aj').value = ''; m.className = 'stt ok'; m.textContent = 'Correção guardada: o vídeo desta homenagem já sai com ela quando a prévia ficar pronta.'; return;
+        }
+        corrPendente = txt; diario('corrige_guardada', { n: txt.length, via: 'fila' });   // sem vídeo automático neste pedido: guarda e pede o vídeo corrigido quando a prévia ficar pronta
         m.className = 'stt ok'; m.textContent = 'Correção guardada: quando a prévia ficar pronta, gero o vídeo corrigido.'; return;
       }
       if (pv.id === 'pronta') {   // prévia já enviada: não há prévia no Estúdio; manda o MESMO pedido de novo (mesma imagem, mesmo "quem sobe") com a correção
