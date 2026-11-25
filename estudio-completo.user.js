@@ -2,7 +2,7 @@
 // @name         Estúdio Eternize (completo)
 // @namespace    eternize.estudio.completo
 // @icon         https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/icone.png
-// @version      0.17.36
+// @version      0.17.37
 // @description  Mostra as fotos que o cliente enviou no chat da Leona, separa por pessoa e manda para o Estúdio Eternize.
 // @updateURL    https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
 // @downloadURL  https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
@@ -22,10 +22,10 @@
 // @connect      raw.githubusercontent.com
 // ==/UserScript==
 
-// Estúdio Eternize — controle remoto, versão 0.17.36 (gerado por leona/gerar.py)
+// Estúdio Eternize — controle remoto, versão 0.17.37 (gerado por leona/gerar.py)
 (function () {
 'use strict';
-const VERSAO_SCRIPT = '0.17.36';
+const VERSAO_SCRIPT = '0.17.37';
 // Faz o código da extensão (content.js) rodar no Tampermonkey: cria um "chrome" de mentira com as mesmas funções
 // (guardar dados, falar com o Estúdio deste computador). O código do menu é o MESMO da extensão.
 const chrome = (() => {
@@ -1684,7 +1684,7 @@ const chrome = (() => {
           <div class="cartao" id="c-orig"><div class="espera">Abrindo as fotos…</div></div>
           <div id="jqs" class="jqs-l"></div>
           <div class="aj"><label for="r-aj">Corrigir o prompt</label><input id="r-aj" maxlength="300" placeholder="Ex.: a pessoa do meio não deve subir a escada"></div>
-          <div class="lin2 cor"><button class="gr" id="r-corrige" title="Gera outro vídeo da mesma prévia com a sua correção no prompt">Gerar vídeo corrigido</button></div>
+          <div class="lin2 cor"><button class="gr" id="r-corrige" title="Gera outro vídeo da mesma prévia com a sua correção no prompt">Gerar vídeo corrigido</button><button class="gr sec" id="r-cola" title="Cole um prompt feito por você (ex.: no ChatGPT): vai exato ao Grok, sem nada acrescentado">Colar meu prompt</button></div>
           <div class="lin2"><button class="gr" id="r-direto">Gerar homenagem</button><button class="gr sec" id="r-previa">Só a prévia</button></div>
           <div class="stt" id="r-msg"></div></section>
         <section class="col"><div class="ct"><span>2 · Prévia · cliente</span><span id="p-pill"></span></div>
@@ -1964,6 +1964,47 @@ const chrome = (() => {
       await pedirCorrecao(pv.id, txt, bt);
     };
     $('#r-corrige').onclick = corrigir;
+    // "Colar meu prompt": o editor gerou o prompt em outro lugar (ChatGPT etc.). Vai EXATO ao Grok (sem trava de roupa nem nota) para ESTE vídeo só; o resumo dele vai para a lista dos que deram certo.
+    const colarPrompt = () => {
+      if ($('#cpd')) return;
+      const d = document.createElement('div'); d.className = 'mpd'; d.id = 'cpd';
+      d.innerHTML = `<div class="mpc"><h3>Colar meu prompt</h3>
+        <p>Cole o prompt inteiro. Ele vai exatamente como está para o Grok, só neste vídeo (o padrão não muda). Se o vídeo ficar bom, marque Deu certo: o prompt e o seu resumo ficam guardados.</p>
+        <textarea id="cptxt" spellcheck="false" placeholder="Cole aqui o prompt do vídeo"></textarea>
+        <input class="avn" id="cpres" maxlength="300" placeholder="Resumo (opcional): o que este prompt faz de diferente. Ex.: Jesus desce mais cedo">
+        <div class="lin"><button class="go" id="cpgera">Gerar vídeo com este prompt</button><button class="go sec" id="cpfecha">Cancelar</button><span class="qtd" id="cpqtd"></span></div>
+        <div class="msg" id="cpmsg"></div></div>`;
+      ($('#veu') || document.body).appendChild(d);
+      const ta = d.querySelector('#cptxt'), q = d.querySelector('#cpqtd');
+      const fala = (t, ruim) => { const m = d.querySelector('#cpmsg'); m.textContent = t; m.className = 'msg' + (ruim ? ' bad' : ''); };
+      ta.oninput = () => { q.textContent = ta.value.length + ' letras'; };
+      ta.focus();
+      d.querySelector('#cpfecha').onclick = () => d.remove();
+      d.querySelector('#cpgera').onclick = async () => {
+        const txt = ta.value.trim(), resumo = d.querySelector('#cpres').value.trim();
+        if (txt.length < 50) return fala('Cole o prompt inteiro (está muito curto).', true);
+        const pv = dados && dados.previa;
+        if (!pv || !pv.id) return fala('Espere o pedido aparecer e tente de novo.', true);
+        if (pv.id !== 'pronta' && pv.estado !== 'pronto') return fala(pv.estado === 'erro' || pv.erro ? 'A prévia deu erro. Use Só a prévia antes.' : 'Espere a prévia ficar pronta para gerar o vídeo com o seu prompt.', true);
+        const bt = d.querySelector('#cpgera'); bt.disabled = true; fala('Pedindo o vídeo…');
+        let r;
+        if (pv.id === 'pronta') {   // prévia já enviada: o mesmo pedido de novo (mesma imagem), com o prompt colado
+          if (chatAtual().id !== chatId) { bt.disabled = false; return fala('Abra o chat #' + chatId + ' para gerar.', true); }
+          let g; try { const k = 'ped_' + id; g = (await chrome.storage.local.get(k))[k]; } catch (e) {}
+          if (!g) { bt.disabled = false; return fala('Este pedido é antigo: use "Nova homenagem neste chat".', true); }
+          const ped = JSON.parse(JSON.stringify(g)); ped.opcoes = ped.opcoes || {}; ped.opcoes.direto = true; ped.opcoes.colado = txt; ped.opcoes.resumo = resumo; ped.refazer_de = id;
+          try { r = await chrome.runtime.sendMessage({ tipo: 'gerar', pedido: ped }); } catch (e) { r = { erro: String(e) }; }
+          if (r && r.ok) { try { chrome.storage.local.set({ ['ped_' + r.id]: ped }); } catch (e) {} guardar(chatId, r.id); }
+        } else {
+          try { r = await chrome.runtime.sendMessage({ tipo: 'video_novo', previa_id: pv.id, colado: txt, resumo }); } catch (e) { r = { erro: String(e) }; }
+        }
+        bt.disabled = false;
+        diario('cola_prompt', { ok: !!(r && r.ok), n: txt.length, er: (r && r.erro) || '' });
+        if (!r || !r.ok) return fala((r && r.erro) || 'Não achei o Estúdio.', true);
+        d.remove(); acompanhar(pv.id === 'pronta' ? r.id : id, chatId);
+      };
+    };
+    $('#r-cola').onclick = colarPrompt;
     $('#r2-previa').onclick = () => refazer(false);   // só a prévia (fotos originais), sem pedir vídeo
     $('#r2-video').onclick = async () => {   // só o vídeo: a prévia está certa, então não gera prévia nova
       const m = $('#r-msg'); m.className = 'stt';
