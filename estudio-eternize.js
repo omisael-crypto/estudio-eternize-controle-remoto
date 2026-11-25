@@ -1,7 +1,7 @@
-// Estúdio Eternize — controle remoto, versão 0.17.29 (gerado por leona/gerar.py)
+// Estúdio Eternize — controle remoto, versão 0.17.30 (gerado por leona/gerar.py)
 (function () {
 'use strict';
-const VERSAO_SCRIPT = '0.17.29';
+const VERSAO_SCRIPT = '0.17.30';
 // Faz o código da extensão (content.js) rodar no Tampermonkey: cria um "chrome" de mentira com as mesmas funções
 // (guardar dados, falar com o Estúdio deste computador). O código do menu é o MESMO da extensão.
 const chrome = (() => {
@@ -496,6 +496,7 @@ const chrome = (() => {
     .col:nth-child(1)>*{grid-column:1}.col:nth-child(2)>*{grid-column:2}.col:nth-child(3)>*{grid-column:3}
     .col>.ct{grid-row:1}.col>.cartao{grid-row:2}.col>.jqs-l{grid-row:3}.col>.lin2{grid-row:4}.col>.stt{grid-row:5}.col>.aj{grid-row:5}.col:nth-child(1)>.stt{grid-row:6}.col:nth-child(1)>.stt:empty{display:none}
     .jqs-l:empty,.aj:empty{display:none}
+    .col:nth-child(1)>.lin2.cor{grid-row:6}.col:nth-child(1)>.stt{grid-row:7}   /* botão "Gerar vídeo corrigido" abaixo do campo; a mensagem desce uma linha */
     .aj{display:flex;flex-direction:column;gap:5px;margin:0}.aj label{margin:0;font-size:.78rem;font-weight:600;color:#9a9aa6}
     .aj input{height:40px;box-sizing:border-box;border:1px solid #2a2a31;background:#16161a;color:#ececf0;border-radius:8px;padding:0 12px;font-size:.88rem;outline:none}.aj input:focus{border-color:#4c8dff}
     .stt{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px}
@@ -1609,7 +1610,7 @@ const chrome = (() => {
           <div class="cartao" id="c-orig"><div class="espera">Abrindo as fotos…</div></div>
           <div id="jqs" class="jqs-l"></div>
           <div class="aj"><label for="r-aj">Corrigir o prompt</label><input id="r-aj" maxlength="300" placeholder="Ex.: a pessoa do meio não deve subir a escada"></div>
-          <div class="lin2"><button class="gr" id="r-corrige" title="Gera outro vídeo da mesma prévia com a sua correção no prompt">Gerar vídeo corrigido</button></div>
+          <div class="lin2 cor"><button class="gr" id="r-corrige" title="Gera outro vídeo da mesma prévia com a sua correção no prompt">Gerar vídeo corrigido</button></div>
           <div class="lin2"><button class="gr" id="r-direto">Gerar homenagem</button><button class="gr sec" id="r-previa">Só a prévia</button></div>
           <div class="stt" id="r-msg"></div></section>
         <section class="col"><div class="ct"><span>2 · Prévia · cliente</span><span id="p-pill"></span></div>
