@@ -1,7 +1,7 @@
-// Estúdio Eternize — controle remoto, versão 0.17.33 (gerado por leona/gerar.py)
+// Estúdio Eternize — controle remoto, versão 0.17.34 (gerado por leona/gerar.py)
 (function () {
 'use strict';
-const VERSAO_SCRIPT = '0.17.33';
+const VERSAO_SCRIPT = '0.17.34';
 // Faz o código da extensão (content.js) rodar no Tampermonkey: cria um "chrome" de mentira com as mesmas funções
 // (guardar dados, falar com o Estúdio deste computador). O código do menu é o MESMO da extensão.
 const chrome = (() => {
@@ -504,7 +504,7 @@ const chrome = (() => {
     .col:nth-child(1)>*{grid-column:1}.col:nth-child(2)>*{grid-column:2}.col:nth-child(3)>*{grid-column:3}
     .col>.ct{grid-row:1}.col>.cartao{grid-row:2}.col>.jqs-l{grid-row:3}.col>.lin2{grid-row:4}.col>.stt{grid-row:5}.col>.aj{grid-row:5}.col:nth-child(1)>.stt{grid-row:6}.col:nth-child(1)>.stt:empty{display:none}
     .jqs-l:empty,.aj:empty{display:none}
-    .col:nth-child(1)>.lin2.cor{grid-row:6}.col:nth-child(1)>.stt{grid-row:7}   /* botão "Gerar vídeo corrigido" abaixo do campo; a mensagem desce uma linha */
+    .col:nth-child(1)>.lin2.cor{grid-row:6}.col:nth-child(1)>.stt{grid-row:7}.col:nth-child(n+2)>.lin2.rf{grid-row:6}   /* botão "Gerar vídeo corrigido" abaixo do campo; a mensagem desce uma linha */
     .aj{display:flex;flex-direction:column;gap:5px;margin:0}.aj label{margin:0;font-size:.78rem;font-weight:600;color:#9a9aa6}
     .aj input{height:40px;box-sizing:border-box;border:1px solid #2a2a31;background:#16161a;color:#ececf0;border-radius:8px;padding:0 12px;font-size:.88rem;outline:none}.aj input:focus{border-color:#4c8dff}
     .stt{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px}
@@ -1661,11 +1661,13 @@ const chrome = (() => {
         <section class="col"><div class="ct"><span>2 · Prévia · cliente</span><span id="p-pill"></span></div>
           <div class="cartao" id="c-previa"></div>
           <div class="lin2"><button class="gr" id="e-previa" disabled>Enviar prévia ao cliente</button><button class="gr sec ic" id="f-previa" title="Tela cheia" aria-label="Tela cheia" disabled>${IC.telaCheia}</button><button class="gr sec ic" id="b-previa" title="Baixar a prévia" aria-label="Baixar" disabled>${IC.baixar}</button></div>
-          <div class="stt" id="s-previa"></div></section>
+          <div class="stt" id="s-previa"></div>
+          <div class="lin2 rf"><button class="gr sec" id="r2-previa" title="Gera uma prévia nova a partir das fotos originais (não pede vídeo)">Refazer só a prévia</button></div></section>
         <section class="col"><div class="ct"><span id="v-tit">3 · Vídeo</span><span id="v-pill"></span></div>
           <div class="cartao" id="c-video"></div>
           <div class="lin2"><button class="gr" id="e-video" disabled>Enviar vídeo ao cliente</button><button class="gr sec ic" id="f-video" title="Tela cheia" aria-label="Tela cheia" disabled>${IC.telaCheia}</button><button class="gr sec ic" id="b-video" title="Baixar o vídeo" aria-label="Baixar" disabled>${IC.baixar}</button></div>
-          <div class="stt" id="s-video"></div></section>
+          <div class="stt" id="s-video"></div>
+          <div class="lin2 rf"><button class="gr sec" id="r2-video" title="Gera um vídeo novo com a MESMA prévia, sem gerar prévia nova">Refazer só o vídeo</button></div></section>
       </div>
       <aside class="gdet" id="gdet" hidden></aside><div class="rodape"><div id="erro"></div><div class="dicac" id="dicaenv"></div><div id="msgenv" class="aviso"></div></div></div>`;
     $('#novo').onclick = () => { clearInterval(relogio); abrir(true); };
@@ -1841,12 +1843,12 @@ const chrome = (() => {
     $('#b-video').onclick = () => devolver(id, chatId, 'video', true);
     $('#f-video').onclick = () => tela(null, '#im-video');
     // refazer: manda o mesmo pedido de novo (com o caso escolhido, na foto única), igual aos botões da primeira coluna do Estúdio
-    const refazer = async direto => {
+    const refazer = async (direto, limpar) => {
       const m = $('#r-msg'); m.className = 'stt';
       if (chatAtual().id !== chatId) { m.className = 'stt bad'; m.textContent = 'Abra o chat #' + chatId + ' para refazer.'; return; }
       let g; try { const k = 'ped_' + id; g = (await chrome.storage.local.get(k))[k]; } catch (e) {}
       if (!g) { m.className = 'stt bad'; m.textContent = 'Este pedido é antigo: use "Nova homenagem neste chat".'; return; }
-      const ped = JSON.parse(JSON.stringify(g)); ped.opcoes = ped.opcoes || {}; ped.opcoes.direto = direto;
+      const ped = JSON.parse(JSON.stringify(g)); ped.opcoes = ped.opcoes || {}; ped.opcoes.direto = direto; if (limpar) ped.opcoes.ajuste = '';
       ped.refazer_de = id;   // é a MESMA homenagem (mesmo cliente): o Estúdio mantém o nome e não conta como pedido novo
       if (jqRef && (ped.juntos || (/^3-/.test(jqRef) && /^3-/.test(ped.caso || '')))) ped.caso = jqRef;
       m.textContent = 'Enviando ao Estúdio…';
@@ -1858,14 +1860,14 @@ const chrome = (() => {
     // "Corrigir o prompt": o editor escreve o que deu errado e o Estúdio gera OUTRO vídeo da mesma prévia com essa correção no começo do prompt.
     // Quando esse vídeo for enviado ao cliente, o Estúdio registra a correção (Administração > Prompts dos editores) para melhorar o prompt padrão.
     const pedirCorrecao = async (pvId, txt, bt) => {
-      const m = $('#r-msg'); if (m) { m.className = 'stt'; m.textContent = 'Pedindo o vídeo corrigido…'; }
+      const m = $('#r-msg'); if (m) { m.className = 'stt'; m.textContent = txt ? 'Pedindo o vídeo corrigido…' : 'Pedindo o vídeo novo…'; }
       if (bt) bt.disabled = true;
-      let r; try { r = await chrome.runtime.sendMessage({ tipo: 'video_novo', previa_id: pvId, ajuste: txt }); } catch (e) { r = { erro: String(e) }; }
+      let r; try { r = await chrome.runtime.sendMessage({ tipo: 'video_novo', previa_id: pvId, ajuste: txt || undefined }); } catch (e) { r = { erro: String(e) }; }
       if (bt) bt.disabled = false;
-      diario('corrige', { ok: !!(r && r.ok), n: txt.length, er: (r && r.erro) || '' });
+      diario(txt ? 'corrige' : 'refaz_video', { ok: !!(r && r.ok), n: txt.length, er: (r && r.erro) || '' });
       const m2 = $('#r-msg');
       if (!r || !r.ok) { if (m2) { m2.className = 'stt bad'; m2.textContent = (r && r.erro) || 'Não achei o Estúdio.'; } return false; }
-      const aj = $('#r-aj'); if (aj) aj.value = '';
+      const aj = $('#r-aj'); if (aj && txt) aj.value = '';
       acompanhar(id, chatId); return true;
     };
     const corrigir = async () => {
@@ -1902,6 +1904,15 @@ const chrome = (() => {
       await pedirCorrecao(pv.id, txt, bt);
     };
     $('#r-corrige').onclick = corrigir;
+    $('#r2-previa').onclick = () => refazer(false);   // só a prévia (fotos originais), sem pedir vídeo
+    $('#r2-video').onclick = async () => {   // só o vídeo: a prévia está certa, então não gera prévia nova
+      const m = $('#r-msg'); m.className = 'stt';
+      const pv = dados && dados.previa;
+      if (!pv || !pv.id) { m.className = 'stt bad'; m.textContent = 'Espere o pedido aparecer e tente de novo.'; return; }
+      if (pv.id === 'pronta') { diario('refaz_video', { pronta: 1 }); return refazer(true, true); }   // prévia já enviada: mesmo pedido de novo (mesma imagem e mesmo "quem sobe"), só o vídeo
+      if (pv.estado !== 'pronto') { m.className = 'stt bad'; m.textContent = pv.estado === 'erro' || pv.erro ? 'A prévia deu erro: use Refazer só a prévia.' : 'Espere a prévia ficar pronta para refazer o vídeo.'; return; }
+      await pedirCorrecao(pv.id, '', $('#r2-video'));
+    };
     refazerHook = () => refazer(true);
     $('#r-direto').onclick = () => refazer(true);
     $('#r-previa').onclick = () => refazer(false);
