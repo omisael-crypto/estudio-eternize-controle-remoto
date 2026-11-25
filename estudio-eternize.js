@@ -1,7 +1,7 @@
-// Estúdio Eternize — controle remoto, versão 0.17.30 (gerado por leona/gerar.py)
+// Estúdio Eternize — controle remoto, versão 0.17.32 (gerado por leona/gerar.py)
 (function () {
 'use strict';
-const VERSAO_SCRIPT = '0.17.30';
+const VERSAO_SCRIPT = '0.17.32';
 // Faz o código da extensão (content.js) rodar no Tampermonkey: cria um "chrome" de mentira com as mesmas funções
 // (guardar dados, falar com o Estúdio deste computador). O código do menu é o MESMO da extensão.
 const chrome = (() => {
@@ -67,6 +67,10 @@ const chrome = (() => {
       if (msg.tipo === 'video_novo') {
         const r = await estudio('/api/video', { method: 'POST', body: JSON.stringify({ previa_id: msg.previa_id, ajuste: msg.ajuste, forcar: true }), tempo: 120000 });
         return { ok: r.status === 200 && !!(r.json && r.json.pedido), erro: (r.json && r.json.erro) || (r.status !== 200 ? 'O Estúdio respondeu ' + r.status + '.' : '') };
+      }
+      if (msg.tipo === 'diario') {
+        const r = await estudio('/api/leona/diario', { method: 'POST', body: JSON.stringify({ eventos: msg.eventos }) });
+        return { ok: r.status === 200 };
       }
       if (msg.tipo === 'ponto') { const r = await estudio('/api/ponto/meu'); return { ok: r.status === 200, dados: r.json, porta: r.porta, erro: (r.json && r.json.erro) || '' }; }
       if (msg.tipo === 'ponto_acao') {
@@ -564,6 +568,43 @@ const chrome = (() => {
   </div></div>`;
   const $ = s => sombra.querySelector(s);
   const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  // ---- Diário de ocorrências: manda ao Estúdio o que o editor clicou, o que o painel avisou e as mudanças de estado dos pedidos.
+  // É só um registro (sem comandos de volta); serve para entender o que aconteceu quando algo "não funcionou". Sem nomes nem telefones de clientes.
+  const diarioBuf = []; let diarioT = null;
+  const diarioEnviar = () => {
+    clearTimeout(diarioT); diarioT = null;
+    if (!diarioBuf.length) return;
+    const eventos = diarioBuf.splice(0, 40);
+    try { chrome.runtime.sendMessage({ tipo: 'diario', eventos }).then(r => { if (!(r && r.ok) && diarioBuf.length < 100) diarioBuf.unshift(...eventos); }).catch(() => { if (diarioBuf.length < 100) diarioBuf.unshift(...eventos); }); } catch (e) {}
+    if (diarioBuf.length) diarioT = setTimeout(diarioEnviar, 5000);
+  };
+  const diario = (ev, dados) => {
+    try {
+      const r = { t: Math.round(Date.now() / 1000), ev: String(ev).slice(0, 30) };
+      try { const c = chatAtual(); if (c && c.id) r.chat = String(c.id).slice(0, 20); } catch (e) {}
+      for (const k in (dados || {})) { const v = dados[k]; r[k] = typeof v === 'string' ? v.slice(0, 200) : v; }
+      diarioBuf.push(r); if (diarioBuf.length > 200) diarioBuf.shift();
+      if (diarioBuf.length >= 15) diarioEnviar(); else if (!diarioT) diarioT = setTimeout(diarioEnviar, 15000);
+    } catch (e) {}
+  };
+  sombra.addEventListener('click', e => {   // qualquer botão do painel
+    const b = e.target && e.target.closest && e.target.closest('button, select, a');
+    if (b) diario('clique', { b: (b.id || b.className || b.tagName || '').toString().slice(0, 40), txt: (b.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40) });
+  }, true);
+  const diarioVisto = new Map();
+  let diarioObsT = null;
+  new MutationObserver(() => {   // texto vermelho na tela (erro ou aviso que o editor viu)
+    clearTimeout(diarioObsT);
+    diarioObsT = setTimeout(() => {
+      sombra.querySelectorAll('.stt.bad, .espera.erro, .bad').forEach(el => {
+        const t = (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 160);
+        if (!t) return;
+        const ult = diarioVisto.get(t) || 0;
+        if (Date.now() - ult > 60000) { diarioVisto.set(t, Date.now()); diario('erro_tela', { txt: t }); }
+      });
+      if (diarioVisto.size > 200) diarioVisto.clear();
+    }, 400);
+  }).observe(sombra, { subtree: true, childList: true, characterData: true });
 
   function acharTraduzir() {
     const cand = [...document.querySelectorAll('[aria-label*="Traduzir" i], [title*="Traduzir" i]')].filter(e => {
@@ -1638,6 +1679,7 @@ const chrome = (() => {
       }
     })();
     let ultimaPintura = null, dados = null, jqRef = null;
+    let corrPendente = '', sigDiario = '';   // corrPendente: correção do prompt digitada enquanto a prévia ainda gerava
     // ---- gaveta "Detalhes" (igual à do app): tempos e os textos usados na prévia e no vídeo ----
     let gaveta = false; const promptsPed = {};
     const fmtT = s => { s = Math.max(0, Math.floor(s || 0)); const m = Math.floor(s / 60), r = s % 60; return (m < 10 ? '0' : '') + m + ':' + (r < 10 ? '0' : '') + r; };
@@ -1692,6 +1734,9 @@ const chrome = (() => {
         return;
       }
       dados = d; casosPedido[id] = d.caso || ''; if (gaveta) pintaGaveta(true);
+      { const sg = [d.estado, d.previa && d.previa.estado, d.video && d.video.estado, d.video && d.video.id, d.erro || (d.previa && d.previa.erro) || (d.video && d.video.erro) || ''].join('|');
+        if (sg !== sigDiario) { sigDiario = sg; diario('estado', { id, e: d.estado, p: d.previa && d.previa.estado, v: d.video && d.video.estado, vid: d.video && d.video.id, ori: d.video && d.video.prompt_origem, er: d.erro || (d.previa && d.previa.erro) || (d.video && d.video.erro) || '' }); } }
+      if (corrPendente && d.previa && d.previa.id && d.previa.id !== 'pronta' && d.previa.estado === 'pronto') { const tc = corrPendente; corrPendente = ''; pedirCorrecao(d.previa.id, tc, null); }   // a prévia ficou pronta: gera o vídeo com a correção guardada
       entregasAtual = d.entregas || {};
       const direto = d.direto !== false, ent = d.entregas || {};
       const pronta = !!(d.previa && (d.previa.estado === 'pronto' || d.previa.estado === 'pronta'));
@@ -1808,17 +1853,44 @@ const chrome = (() => {
     };
     // "Corrigir o prompt": o editor escreve o que deu errado e o Estúdio gera OUTRO vídeo da mesma prévia com essa correção no começo do prompt.
     // Quando esse vídeo for enviado ao cliente, o Estúdio registra a correção (Administração > Prompts dos editores) para melhorar o prompt padrão.
+    const pedirCorrecao = async (pvId, txt, bt) => {
+      const m = $('#r-msg'); if (m) { m.className = 'stt'; m.textContent = 'Pedindo o vídeo corrigido…'; }
+      if (bt) bt.disabled = true;
+      let r; try { r = await chrome.runtime.sendMessage({ tipo: 'video_novo', previa_id: pvId, ajuste: txt }); } catch (e) { r = { erro: String(e) }; }
+      if (bt) bt.disabled = false;
+      diario('corrige', { ok: !!(r && r.ok), n: txt.length, er: (r && r.erro) || '' });
+      const m2 = $('#r-msg');
+      if (!r || !r.ok) { if (m2) { m2.className = 'stt bad'; m2.textContent = (r && r.erro) || 'Não achei o Estúdio.'; } return false; }
+      const aj = $('#r-aj'); if (aj) aj.value = '';
+      acompanhar(id, chatId); return true;
+    };
     const corrigir = async () => {
       const m = $('#r-msg'); m.className = 'stt';
       const txt = (($('#r-aj') || {}).value || '').trim();
       if (!txt) { m.className = 'stt bad'; m.textContent = 'Escreva a correção do prompt: o que deu errado no vídeo.'; return; }
       const pv = dados && dados.previa;
-      if (!pv || !pv.id || pv.id === 'pronta' || pv.estado !== 'pronto') { m.className = 'stt bad'; m.textContent = 'A correção vale quando a prévia já está pronta. Para prévia já enviada, use Gerar homenagem.'; return; }
-      const bt = $('#r-corrige'); bt.disabled = true; m.textContent = 'Pedindo o vídeo corrigido…';
-      let r; try { r = await chrome.runtime.sendMessage({ tipo: 'video_novo', previa_id: pv.id, ajuste: txt }); } catch (e) { r = { erro: String(e) }; }
-      bt.disabled = false;
-      if (!r || !r.ok) { m.className = 'stt bad'; m.textContent = (r && r.erro) || 'Não achei o Estúdio.'; return; }
-      $('#r-aj').value = ''; acompanhar(id, chatId);
+      if (!pv || !pv.id) { m.className = 'stt bad'; m.textContent = 'Espere o pedido aparecer e tente de novo.'; return; }
+      const bt = $('#r-corrige');
+      if (pv.id !== 'pronta' && pv.estado !== 'pronto') {
+        if (pv.estado === 'erro' || pv.erro) { m.className = 'stt bad'; m.textContent = 'A prévia deu erro. Use Só a prévia (ou Tentar novamente) antes de corrigir o vídeo.'; return; }
+        corrPendente = txt; diario('corrige_guardada', { n: txt.length });   // a prévia ainda está gerando: guarda e pede o vídeo corrigido quando ela ficar pronta
+        m.className = 'stt ok'; m.textContent = 'Correção guardada: quando a prévia ficar pronta, gero o vídeo corrigido.'; return;
+      }
+      if (pv.id === 'pronta') {   // prévia já enviada: não há prévia no Estúdio; manda o MESMO pedido de novo (mesma imagem, mesmo "quem sobe") com a correção
+        if (chatAtual().id !== chatId) { m.className = 'stt bad'; m.textContent = 'Abra o chat #' + chatId + ' para corrigir.'; return; }
+        let g; try { const k = 'ped_' + id; g = (await chrome.storage.local.get(k))[k]; } catch (e) {}
+        if (!g) { m.className = 'stt bad'; m.textContent = 'Este pedido é antigo: use "Nova homenagem neste chat".'; return; }
+        const ped = JSON.parse(JSON.stringify(g)); ped.opcoes = ped.opcoes || {}; ped.opcoes.direto = true; ped.opcoes.ajuste = txt; ped.refazer_de = id;
+        bt.disabled = true; m.textContent = 'Pedindo o vídeo corrigido…';
+        let rp; try { rp = await chrome.runtime.sendMessage({ tipo: 'gerar', pedido: ped }); } catch (e) { rp = { erro: String(e) }; }
+        bt.disabled = false;
+        diario('corrige', { ok: !!(rp && rp.ok), pronta: 1, n: txt.length, er: (rp && rp.erro) || '' });
+        if (!rp || !rp.ok) { m.className = 'stt bad'; m.textContent = (rp && rp.erro) || 'Não achei o Estúdio.'; return; }
+        try { chrome.storage.local.set({ ['ped_' + rp.id]: ped }); } catch (e) {}   // o vídeo corrigido nunca é enviado sozinho: o editor confere e envia
+        $('#r-aj').value = ''; guardar(chatId, rp.id); acompanhar(rp.id, chatId);
+        return;
+      }
+      await pedirCorrecao(pv.id, txt, bt);
     };
     $('#r-corrige').onclick = corrigir;
     refazerHook = () => refazer(true);
@@ -1859,7 +1931,7 @@ const chrome = (() => {
   // ---------- menu das fotos do chat (as setinhas ao lado da foto): "Marcar como P1 / P2 / P3 / P4" ----------
   const toastEl = document.createElement('div'); toastEl.className = 'toast'; sombra.appendChild(toastEl);
   let toastT = null;
-  function toast(texto) { toastEl.textContent = texto; toastEl.style.display = 'block'; clearTimeout(toastT); toastT = setTimeout(() => { toastEl.style.display = 'none'; }, 3200); }
+  function toast(texto) { diario('aviso', { txt: String(texto) }); toastEl.textContent = texto; toastEl.style.display = 'block'; clearTimeout(toastT); toastT = setTimeout(() => { toastEl.style.display = 'none'; }, 3200); }
 
   async function carregarMarcas() {
     try {
