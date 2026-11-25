@@ -2,7 +2,7 @@
 // @name         Estúdio Eternize (completo)
 // @namespace    eternize.estudio.completo
 // @icon         https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/icone.png
-// @version      0.17.35
+// @version      0.17.36
 // @description  Mostra as fotos que o cliente enviou no chat da Leona, separa por pessoa e manda para o Estúdio Eternize.
 // @updateURL    https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
 // @downloadURL  https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
@@ -22,10 +22,10 @@
 // @connect      raw.githubusercontent.com
 // ==/UserScript==
 
-// Estúdio Eternize — controle remoto, versão 0.17.35 (gerado por leona/gerar.py)
+// Estúdio Eternize — controle remoto, versão 0.17.36 (gerado por leona/gerar.py)
 (function () {
 'use strict';
-const VERSAO_SCRIPT = '0.17.35';
+const VERSAO_SCRIPT = '0.17.36';
 // Faz o código da extensão (content.js) rodar no Tampermonkey: cria um "chrome" de mentira com as mesmas funções
 // (guardar dados, falar com o Estúdio deste computador). O código do menu é o MESMO da extensão.
 const chrome = (() => {
@@ -132,6 +132,7 @@ const chrome = (() => {
       if (msg.tipo === 'meu_prompt_get') { const r = await estudio('/api/meu-prompt?caso=' + encodeURIComponent(String(msg.caso || ''))); return ({ ok: r.status === 200, dados: r.json, erro: (r.json && r.json.erro) || '' }); }
       if (msg.tipo === 'meu_prompt_set') { const r = await estudio('/api/meu-prompt', { method: 'POST', body: JSON.stringify({ caso: msg.caso, texto: msg.texto }) }); return ({ ok: r.status === 200, dados: r.json, erro: (r.json && r.json.erro) || '' }); }
       if (msg.tipo === 'avaliar') { const r = await estudio('/api/avaliar', { method: 'POST', body: JSON.stringify({ id: msg.id, resultado: msg.resultado, motivo: msg.motivo || '', nota: msg.nota || '' }) }); return ({ ok: r.status === 200, erro: (r.json && r.json.erro) || '' }); }
+      if (msg.tipo === 'rostos') { const r = await estudio('/api/rostos?id=' + encodeURIComponent(String(msg.id || ''))); return ({ ok: r.status === 200, dados: r.json, erro: (r.json && r.json.erro) || '' }); }
       if (msg.tipo === 'prompt_usado') { const r = await estudio('/api/prompt-usado?id=' + encodeURIComponent(String(msg.id || ''))); return ({ ok: r.status === 200, dados: r.json, erro: (r.json && r.json.erro) || '' }); }
       if (msg.tipo === 'repetir') { const r = await estudio('/api/leona/repetir', { method: 'POST', body: JSON.stringify({ id: msg.id, cancelar: !!msg.cancelar }) }); return { ok: r.status === 200, erro: (r.json && r.json.erro) || '' }; }
       if (msg.tipo === 'entregue') { const r = await estudio('/api/leona/entregue', { method: 'POST', body: JSON.stringify({ id: msg.id, tipo: msg.arquivo }) }); return { ok: r.status === 200 }; }
@@ -585,6 +586,9 @@ const chrome = (() => {
     .gdet textarea{width:100%;min-height:220px;resize:vertical;background:#0f1015;color:#c9cdda;border:1px solid #2a2a31;border-radius:8px;padding:10px;font:12px/1.5 ui-monospace,Consolas,monospace;box-sizing:border-box}
     .gdet .cp{align-self:flex-start;height:30px;padding:0 14px;border:1px solid #2a2a31;background:#1d1d22;color:#ececf0;border-radius:8px;font-size:.8rem;font-weight:600;cursor:pointer}
     .gdet .cp:hover,.gdet .gx:hover{border-color:#4c8dff}
+    .gdet .rost img{width:100%;display:block;border-radius:10px;border:1px solid #2a2a31;cursor:zoom-in}
+    .gdet .avs{font-size:.8rem;color:#f0a030}
+    .rostzoom{position:fixed;inset:0;z-index:2147483000;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;cursor:zoom-out}.rostzoom img{max-width:94vw;max-height:94vh;border-radius:10px}
     .stt{font-size:.85rem;color:#8e8e9a;min-height:22px;line-height:1.3}.stt.ok{color:#22d366}.stt.bad{color:#f2686a}
     .andam .erro{color:#f2686a;font-size:.85rem}
     @media(max-width:1100px){.cols{grid-template-columns:1fr;grid-template-rows:none;overflow:auto}.col{display:flex;flex-direction:column;gap:10px}.col>*{grid-column:auto!important;grid-row:auto!important}.cartao{min-height:360px}}
@@ -1713,14 +1717,25 @@ const chrome = (() => {
     let corrPendente = '', sigDiario = '';   // corrPendente: correção do prompt digitada enquanto a prévia ainda gerava
     // ---- gaveta "Detalhes" (igual à do app): tempos e os textos usados na prévia e no vídeo ----
     let gaveta = false; const promptsPed = {};
+    const rostosPed = {}; let rostosBusca = false;   // comparativo dos rostos (o Estúdio calcula; aqui só se mostra a imagem pronta)
     const fmtT = s => { s = Math.max(0, Math.floor(s || 0)); const m = Math.floor(s / 60), r = s % 60; return (m < 10 ? '0' : '') + m + ':' + (r < 10 ? '0' : '') + r; };
     const aberto = {};   // prompts abertos ("ver prompt")
     let sigGav = '';
     const pintaGaveta = auto => {   // auto: vem da consulta a cada poucos segundos; só redesenha se algo mudou (para não atrapalhar quem está lendo ou copiando)
       const g = $('#gdet'); if (!g) return; g.hidden = !gaveta; const bt = $('#detalhes'); if (bt) bt.setAttribute('aria-expanded', gaveta ? 'true' : 'false');
       if (!gaveta || !dados) return;
-      const sg = JSON.stringify([dados.previa && dados.previa.id, dados.video && dados.video.id, dados.video && dados.video.etapas]); if (auto === true && sg === sigGav) return; sigGav = sg;
+      const sg = JSON.stringify([dados.previa && dados.previa.id, dados.video && dados.video.id, dados.video && dados.video.etapas, dados.previa && rostosPed[dados.previa.id] && rostosPed[dados.previa.id].estado]); if (auto === true && sg === sigGav) return; sigGav = sg;
       const d = dados, e = d.video && d.video.etapas; let h = '<div class="gt"><span>Detalhes</span><button class="gx" id="gavx" aria-label="Fechar detalhes">✕</button></div>';
+      const pv = d.previa;
+      if (pv && pv.id && pv.id !== 'pronta' && pv.estado === 'pronto') {
+        const rs = rostosPed[pv.id];
+        h += '<div class="cel rost"><div class="ctit">Comparar rostos</div>';
+        if (rs && rs.estado === 'pronto') h += `<img src="${rs.img}" alt="Rostos: original e prévia" title="Clique para ampliar">${rs.aviso ? `<div class="avs">${esc(rs.aviso)}</div>` : ''}`;
+        else if (rs && (rs.estado === 'erro' || rs.estado === 'sem')) h += `<div class="mut">${esc(rs.msg || 'Não consegui comparar os rostos.')}</div>`;
+        else h += `<div class="mut">Procurando os rostos…${rs && rs.espera_s > 25 ? ' (o Estúdio precisa estar aberto neste computador)' : ''}</div>`;
+        h += '</div>';
+        if (!rs || rs.estado === 'pedido' || rs.estado === 'lendo' || (rs.estado === 'erro' && Date.now() - (rs.quando || 0) > 30000)) buscaRostos(pv.id);
+      }
       if (e && e.total != null) h += `<div class="cel"><div class="ctit">Tempos</div><div class="tempo">⏱ ${fmtT(e.total)} no total<br>Prévia ${fmtT(e.previa)} · Vídeo ${fmtT(e.video)} · Montagem ${fmtT(e.montagem)}</div></div>`;
       for (const [nome, ped] of [['Prompt da prévia', d.previa], ['Prompt do vídeo', d.video]]) {
         if (!ped || !ped.id || ped.id === 'pronta') continue;
@@ -1737,8 +1752,18 @@ const chrome = (() => {
       if (!h.includes('class="cel"')) h += '<div class="cel"><div class="mut">Ainda não há detalhes. Os prompts aparecem assim que a prévia começa a ser gerada, e os tempos quando o vídeo fica pronto.</div></div>';
       const rol = g.scrollTop; g.innerHTML = h; g.scrollTop = rol;
       const x = g.querySelector('#gavx'); if (x) x.onclick = () => { gaveta = false; pintaGaveta(); };
+      g.querySelectorAll('.rost img').forEach(im => { im.onclick = () => { const z = document.createElement('div'); z.className = 'rostzoom'; z.innerHTML = '<img>'; z.firstChild.src = im.src; z.onclick = () => z.remove(); document.body.appendChild(z); }; });
       g.querySelectorAll('[data-vp]').forEach(b => { b.onclick = () => { aberto[b.dataset.vp] = !aberto[b.dataset.vp]; pintaGaveta(); }; });
       g.querySelectorAll('[data-cp]').forEach(b => { b.onclick = () => { const tx = (promptsPed[b.dataset.cp] || {}).texto || ''; navigator.clipboard.writeText(tx).then(() => { b.textContent = 'Copiado'; setTimeout(() => { b.textContent = 'Copiar'; }, 1500); }).catch(() => {}); }; });
+    };
+    const buscaRostos = pid => {   // pergunta ao Estúdio (a cada 3 s) até o comparativo ficar pronto
+      if (rostosBusca) return; rostosBusca = true;
+      chrome.runtime.sendMessage({ tipo: 'rostos', id: pid }).then(r => {
+        const j = (r && r.ok && r.dados) ? r.dados : { estado: 'erro', msg: (r && r.erro) || 'Não consegui falar com o Estúdio.' };
+        rostosPed[pid] = Object.assign({}, j, { quando: Date.now() });
+      }).catch(() => { rostosPed[pid] = { estado: 'erro', msg: 'Não consegui falar com o Estúdio.', quando: Date.now() }; }).then(() => {
+        rostosBusca = false; sigGav = ''; if (gaveta) { pintaGaveta(); const rs = rostosPed[pid]; if (rs && (rs.estado === 'pedido' || rs.estado === 'lendo')) setTimeout(() => { if (gaveta) pintaGaveta(); }, 3000); }
+      });
     };
     $('#detalhes').onclick = () => { gaveta = !gaveta; sigGav = ''; pintaGaveta(); };
 
