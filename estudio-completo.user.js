@@ -2,7 +2,7 @@
 // @name         Estúdio Eternize (completo)
 // @namespace    eternize.estudio.completo
 // @icon         https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/icone.png
-// @version      0.17.37
+// @version      0.17.39
 // @description  Mostra as fotos que o cliente enviou no chat da Leona, separa por pessoa e manda para o Estúdio Eternize.
 // @updateURL    https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
 // @downloadURL  https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
@@ -22,10 +22,10 @@
 // @connect      raw.githubusercontent.com
 // ==/UserScript==
 
-// Estúdio Eternize — controle remoto, versão 0.17.37 (gerado por leona/gerar.py)
+// Estúdio Eternize — controle remoto, versão 0.17.39 (gerado por leona/gerar.py)
 (function () {
 'use strict';
-const VERSAO_SCRIPT = '0.17.37';
+const VERSAO_SCRIPT = '0.17.39';
 // Faz o código da extensão (content.js) rodar no Tampermonkey: cria um "chrome" de mentira com as mesmas funções
 // (guardar dados, falar com o Estúdio deste computador). O código do menu é o MESMO da extensão.
 const chrome = (() => {
@@ -213,7 +213,7 @@ const chrome = (() => {
   const MAX_PESSOAS = 4;
   let n, pessoas, ativa, fotosSel, mais, ajuste, relogio = null, msg = '', aniv = false;   // aniv: pedido de ANIVERSÁRIO (caso aniv-1p, 1 pessoa)
   let buscando = false;
-  var modoPronta = false, prontaSrc = '', quemSobe = '';   // "prévia já enviada": usa uma imagem que NÓS mandamos no chat e gera só o vídeo dela
+  var modoPronta = false, prontaSrc = '';   // "prévia já enviada": usa uma imagem que NÓS mandamos no chat e gera só o vídeo dela
   var marcas = new Map(), marcasChat = '';   // foto (endereço) -> ['P1', 'P3']: o que já foi marcado neste chat
   let autoEnvio = true;   // chave "Envio automático ao cliente" (liga/desliga os botões "e enviar")
   const janelaPagina = (typeof unsafeWindow !== 'undefined' && unsafeWindow) || window;
@@ -276,7 +276,7 @@ const chrome = (() => {
   const emJuntos = () => juntos && (n === 2 || n === 3);
   let chatPainel = { id: '', nome: '' };   // o contato em que o painel foi aberto: tudo o que o painel faz vale para ELE, mesmo que a Leona mude de chat
 
-  const nova = () => ({ vivo: false, foto: null, animal: false, bebe: false, semcamisa: false, calca: false, vestido: false, papel: '', edit: null, editada: null, busy: false });
+  const nova = () => ({ vivo: false, foto: null, animal: false, bebe: false, crianca: false, semcamisa: false, calca: false, vestido: false, papel: '', edit: null, editada: null, busy: false });
 
   // ---------- ler o chat ----------
   function chatAtual() {
@@ -494,6 +494,7 @@ const chrome = (() => {
     .trio{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px}.duo{display:grid;grid-template-columns:1fr 1fr;gap:4px}
     .sc{border:1px solid #2a2c35;background:#16171c;color:#9aa0b2;border-radius:8px;padding:6px 2px;cursor:pointer;font-size:12px}
     .sc.on{background:#4c8dff;color:#fff;border-color:#4c8dff;font-weight:700}
+    .duo.um{grid-template-columns:1fr}.sc.oc,.duo.oc{visibility:hidden}
     .maisop{background:none;border:0;color:#9aa0b2;cursor:pointer;padding:6px 0;font-size:13px}
     .maisop .cnt{background:#4c8dff;color:#fff;border-radius:9px;padding:1px 7px;font-size:11px;margin-left:4px}
     .aj label{display:block;font-size:12px;color:#8b90a0;margin:6px 0 4px}
@@ -527,8 +528,28 @@ const chrome = (() => {
     .cols{flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:auto minmax(0,1fr) auto auto auto auto auto;column-gap:20px;row-gap:10px;align-content:stretch}
     .col{display:contents}
     .col:nth-child(1)>*{grid-column:1}.col:nth-child(2)>*{grid-column:2}.col:nth-child(3)>*{grid-column:3}
-    .col>.ct{grid-row:1}.col>.cartao{grid-row:2}.col>.jqs-l{grid-row:3}.col>.lin2{grid-row:4}.col>.stt{grid-row:5}.col>.aj{grid-row:5}.col:nth-child(1)>.stt{grid-row:6}.col:nth-child(1)>.stt:empty{display:none}
+    .col>.ct{grid-row:1}.col>.cartao{grid-row:2}.col>.r3{grid-row:3}.col>.lin2{grid-row:4}.col>.stt{grid-row:5}.col>.aj{grid-row:5}.col:nth-child(1)>.stt{grid-row:6}.col:nth-child(1)>.stt:empty{display:none}
     .jqs-l:empty,.aj:empty{display:none}
+    .r3{display:flex;flex-direction:column;gap:8px}.r3>.gr{flex:none}.r3>.gr[hidden]{display:none}
+    /* "Mais opções": a janelinha com o menu de cada pessoa (igual ao "Original e refazer" do Estúdio) */
+    .mop{background:#17181f;border:1px solid #2a2c35;border-radius:12px;padding:14px;max-width:100%;max-height:92vh;display:flex;flex-direction:column;gap:10px;color:#e6e8f0}
+    .mop h3{margin:0;font-size:15px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .mop .x{width:30px;height:30px;padding:0;border:1px solid #2a2c35;background:#1d1f27;color:#ececf0;border-radius:8px;cursor:pointer;display:grid;place-items:center}
+    .mopg{display:grid;gap:8px;overflow:auto;min-height:0;justify-content:center}
+    .mopp{display:flex;flex-direction:column;gap:6px;min-width:0;padding:8px;border:1px solid #2a2a31;border-radius:8px;background:#16161a}
+    .mopp small{color:#9a9aa6;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:14px}
+    .mopf{position:relative;height:110px;background:#000;border-radius:6px;overflow:hidden;flex:none}
+    .mopf img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}.mopf img.esp{transform:scaleX(-1)}
+    .mopl{display:grid;gap:4px}.mopl.c1{grid-template-columns:1fr}.mopl.c2{grid-template-columns:repeat(2,minmax(0,1fr))}.mopl.c3{grid-template-columns:repeat(3,minmax(0,1fr))}.mopl.some{visibility:hidden}
+    .mop button.o{display:flex;align-items:center;justify-content:center;gap:5px;height:28px;padding:0 4px;border:1px solid #2a2c35;background:#1d1f27;color:#9aa0b2;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap}
+    .mop button.o:hover:not([disabled]){border-color:#4c8dff;color:#ececf0}.mop button.o[disabled]{opacity:.3;cursor:default}
+    .mop button.o.on{background:#4c8dff;border-color:#4c8dff;color:#fff;font-weight:700}
+    .mop button.o.oc{visibility:hidden}
+    .mop button.o svg{width:15px;height:15px;flex:none}
+    .mopr{display:flex;flex-direction:column;gap:6px}.mopr.junto{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}.mopr.junto>.mopl{display:contents}
+    .mopj{display:flex;flex-direction:column;gap:6px}.mopj .j3l{display:grid;grid-template-columns:90px 1fr 1fr;gap:4px;align-items:center;font-size:12px;color:#9aa0b2}
+    .mop .lin2 .gr{height:38px;font-size:.88rem}
+    .mop .stt{min-height:0}.mop .stt:empty{display:none}
     .col:nth-child(1)>.lin2.cor{grid-row:6}.col:nth-child(1)>.stt{grid-row:7}.col:nth-child(n+2)>.lin2.rf{grid-row:6}   /* botão "Gerar vídeo corrigido" abaixo do campo; a mensagem desce uma linha */
     .aj{display:flex;flex-direction:column;gap:5px;margin:0}.aj label{margin:0;font-size:.78rem;font-weight:600;color:#9a9aa6}
     .aj input{height:40px;box-sizing:border-box;border:1px solid #2a2a31;background:#16161a;color:#ececf0;border-radius:8px;padding:0 12px;font-size:.88rem;outline:none}.aj input:focus{border-color:#4c8dff}
@@ -823,11 +844,11 @@ const chrome = (() => {
   }
   const todasFalecidas = () => pessoas.every(p => !p.vivo);
   const lista = () => emJuntos() ? pessoas.slice(0, 1) : pessoas;   // com "Mesma foto" só o 1º quadrado conta
-  const okPronta = () => !!prontaSrc && !!casoDe() && (n < 2 || !!quemSobe.trim());
+  const okPronta = () => !!prontaSrc && !!casoDe();
   function pedido(direto) {
-    if (modoPronta) {   // prévia já enviada: uma imagem só; o Estúdio gera só o vídeo (Grok) e o "quem sobe" vai para a IA do roteiro
+    if (modoPronta) {   // prévia já enviada: uma imagem só; o Estúdio gera só o vídeo (Grok); quem sobe vem das marcações
       return { origem: 'leona', chat: chatPainel.id ? chatPainel : chatAtual(), caso: casoDe(), pessoas: [{ n: 1, vivo: false, fotos: [prontaSrc] }],
-        opcoes: { pronta: true, quem_sobe: quemSobe.trim(), ajuste: ajuste.trim(), direto: true } };
+        opcoes: { pronta: true, ajuste: ajuste.trim(), direto: true } };
     }
     const idx = k => pessoas.map((p, i) => p[k] ? i + 1 : 0).filter(Boolean);
     let chegada = null;
@@ -843,7 +864,7 @@ const chrome = (() => {
     return {
       origem: 'leona', chat: chatPainel.id ? chatPainel : chatAtual(), caso: casoDe(),
       pessoas: pessoas.map((p, i) => ({ n: i + 1, vivo: p.vivo, fotos: [fotosSel.find(f => f.id === p.foto).src], ...(p.editada ? { imagem: { tipo: 'image/jpeg', b64: p.editada.b64 } } : {}) })),
-      opcoes: { semcamisa: idx('semcamisa'), calca: idx('calca'), vestido: idx('vestido'), animal: idx('animal'), bebe: idx('bebe'), chegada, ajuste: ajuste.trim(), direto },
+      opcoes: { semcamisa: idx('semcamisa'), calca: idx('calca'), vestido: idx('vestido'), animal: idx('animal'), bebe: idx('bebe'), crianca: idx('crianca'), chegada, ajuste: ajuste.trim(), direto },
     };
   }
   function problema() {
@@ -877,7 +898,7 @@ const chrome = (() => {
   // ---------- recortar a pessoa: o botão ✂ de cada quadrado (P1, P2, P3...) abre esta tela ----------
   // O editor escolhe a foto do cliente, gira se precisar e recorta a pessoa; o recorte vai para aquele quadrado.
   const origens = new Map();   // endereço da foto -> imagem original carregada
-  const giros = {};            // foto -> { rot, flip } lembrado: depois de girar uma vez, o próximo recorte já abre certo
+  const giros = {};            // endereço da foto -> { rot, flip } lembrado (o número da foto se repete entre contatos): depois de girar uma vez, o próximo recorte já abre certo
   let ed = null;               // tela aberta: { i, fotoId, img, rot, flip, crop, carregando }
   const MIN_CORTE = 0.05;
   const CORTE_INICIAL = { x: .2, y: .1, w: .6, h: .8 };
@@ -953,7 +974,8 @@ const chrome = (() => {
     try {
       const img = await carregarOriginal(f.src);
       if (!ed || ed.fotoId !== fid) return;   // trocou de foto enquanto carregava
-      const g = p.foto === fid && p.edit ? p.edit : (giros[fid] || { rot: 0, flip: false });
+      ed.src = f.src;
+      const g = p.foto === fid && p.edit ? p.edit : (giros[f.src] || { rot: 0, flip: false });
       ed.img = img; ed.rot = g.rot; ed.flip = g.flip;
       ed.crop = p.foto === fid && p.edit && p.edit.crop ? { ...p.edit.crop } : { ...CORTE_INICIAL };
       ed.carregando = false;
@@ -974,7 +996,7 @@ const chrome = (() => {
       <div class="edit-meio"><div class="edit-pes"><span>Fotos do cliente (${fotosSel.length})</span>${miniaturas}</div>
       <div class="edit-corpo" id="editcorpo">${ed.carregando ? '<div class="ocupado">Abrindo a foto…</div>' : ed.erro ? `<div class="aviso bad">${esc(ed.erro)}</div>` : '<div class="stage" id="stage"><canvas id="ec"></canvas></div>'}</div></div>
       <div class="edit-rod"><span class="res">Gire se precisar, depois arraste a moldura sobre a pessoa e ajuste pelas bolinhas.</span>
-        <div style="display:flex;gap:8px"><button class="tb" data-ed="cancelar">Cancelar</button><button class="tb on" data-ed="usar" ${ed.img ? '' : 'disabled'} style="padding:9px 18px;font-weight:700">Usar como P${ed.i + 1}</button></div></div>`;
+        <div style="display:flex;gap:8px"><button class="tb" data-ed="cancelar">Cancelar</button><button class="tb on" data-ed="usar" ${ed.img && !ed.carregando ? '' : 'disabled'} style="padding:9px 18px;font-weight:700">Usar como P${ed.i + 1}</button></div></div>`;
     const pes = $('#edit').querySelector('.edit-pes');
     if (pes) { pes.scrollTop = rolagem; if (!rolagem) { const at = pes.querySelector('.pick.at'); if (at) at.scrollIntoView({ block: 'nearest' }); } }
     if (ed.img && !ed.carregando) {
@@ -1021,7 +1043,8 @@ const chrome = (() => {
   async function acaoEditor(a) {
     if (!ed) return;
     if (a === 'cancelar') return fecharEditor();
-    const girou = () => { giros[ed.fotoId] = { rot: ed.rot, flip: ed.flip }; ed.crop = { ...CORTE_INICIAL }; desenharEditor(); };   // o giro fica lembrado para os próximos recortes desta foto
+    if (ed.carregando) return;   // a foto escolhida ainda está abrindo: a imagem em memória é a ANTERIOR (outra pessoa), não dá para girar nem usar
+    const girou = () => { giros[ed.src] = { rot: ed.rot, flip: ed.flip }; ed.crop = { ...CORTE_INICIAL }; desenharEditor(); };   // o giro fica lembrado para os próximos recortes desta foto
     if (a === 'esq' || a === 'dir') { ed.rot += a === 'dir' ? 1 : -1; return girou(); }
     if (a === 'flip') { ed.flip = !ed.flip; return girou(); }
     if (a === 'zero') { ed.rot = 0; ed.flip = false; return girou(); }
@@ -1043,7 +1066,7 @@ const chrome = (() => {
   const uso = id => { const u = pessoas.map((q, j) => q.foto === id ? 'P' + (j + 1) : '').filter(Boolean); return u.length ? `<span class="uso">${u.join(' + ')}</span>` : ''; };
   const BT = (cls, dado, txt, on) => `<button class="${cls}${on ? ' on' : ''}" ${dado}>${txt}</button>`;
 
-  const contaOps = () => pessoas.reduce((a, p) => a + ['animal', 'bebe', 'semcamisa', 'calca', 'vestido'].filter(k => p[k]).length, 0) + (ajuste.trim() ? 1 : 0);
+  const contaOps = () => pessoas.reduce((a, p) => a + ['animal', 'bebe', 'crianca', 'semcamisa', 'calca', 'vestido'].filter(k => p[k]).length, 0) + (ajuste.trim() ? 1 : 0);
   const rotuloMais = () => { const k = contaOps(); return (mais ? IC.fecha : IC.abre) + ' Mais opções' + (k ? ` <span class="cnt">${k} ${k > 1 ? 'ligadas' : 'ligada'}</span>` : ''); };
 
   function desenhar() {
@@ -1068,8 +1091,9 @@ const chrome = (() => {
         ${emJuntos() && n === 3 ? `<div class="jq3">${['Da esquerda', 'Do meio', 'Da direita'].map((nm, k) => `<div class="j3l"><span>${nm}</span><div class="par">${BT('', 'data-j3="' + k + '" data-v="f"', IC.estrela + ' Faleceu', jq[2 + k] === 'f')}${BT('', 'data-j3="' + k + '" data-v="v"', IC.coracao + ' Está viva', jq[2 + k] === 'v')}</div></div>`).join('')}</div>` : ''}
         ${n >= 2 && !emJuntos() ? `<div class="par" data-est="${i}">${BT('', 'data-v="0"', IC.estrela + ' Faleceu', !p.vivo)}${BT('', 'data-v="1"', IC.coracao + ' Está viva', p.vivo)}</div>` : ''}
         ${n >= 2 && n <= 4 && !emJuntos() ? `<div class="par ${todasFalecidas() ? '' : 'escondido'}" data-papel="${i}">${BT('', 'data-pp="espera"', 'No céu', p.papel === 'espera')}${BT('', 'data-pp="chega"', 'Chegou', p.papel === 'chega')}</div>` : ''}
-        ${mais && !emJuntos() ? `<div class="trio">${aniv ? '' : BT('sc', 'data-op="animal"', 'Animal', p.animal) + BT('sc', 'data-op="bebe"', 'Bebê', p.bebe)}${livre ? BT('sc', 'data-op="semcamisa"', 'Sem camisa', p.semcamisa) : ''}</div>
-          ${livre ? `<div class="duo">${BT('sc', 'data-op="calca"', 'Calça', p.calca)}${BT('sc', 'data-op="vestido"', 'Vestido', p.vestido)}</div>` : ''}` : ''}
+        ${mais && !emJuntos() ? `<div class="duo${aniv ? ' um' : ''}">${BT('sc', 'data-op="crianca"', 'Criança', p.crianca)}${aniv ? '' : BT('sc', 'data-op="bebe"', 'Bebê', p.bebe)}</div>
+          <div class="duo${aniv ? ' um' : ''}">${aniv ? '' : BT('sc', 'data-op="animal"', 'Animal', p.animal)}${BT('sc' + (livre ? '' : ' oc'), 'data-op="semcamisa"', 'Sem camisa', p.semcamisa)}</div>
+          <div class="duo${livre ? '' : ' oc'}">${BT('sc', 'data-op="calca"', 'Calça', p.calca)}${BT('sc', 'data-op="vestido"', 'Vestido', p.vestido)}</div>` : ''}
       </div>`;
     }).join('');
 
@@ -1080,7 +1104,7 @@ const chrome = (() => {
         <div class="fotos">${fotosSel.map(f => `<div class="foto" data-f="${f.id}"><img src="${esc(f.src)}">${uso(f.id)}</div>`).join('') || '<div class="vazio">Nenhuma foto achada neste chat.</div>'}</div>
         ${nossasSel.length ? `<div class="sec-t seg2"><h5>Prévias já enviadas (${nossasSel.length})</h5></div><div class="sec-s">Clique numa prévia para gerar só o vídeo dela.</div><div class="fotos">${nossasSel.map(f => `<div class="foto" data-pronta="${f.id}" style="${modoPronta && prontaSrc === f.src ? 'outline:2px solid #4c8dff' : ''}"><img src="${esc(f.src)}">${modoPronta && prontaSrc === f.src ? '<span class="uso">escolhida</span>' : ''}</div>`).join('')}</div>` : ''}</div>
       <div class="dir" id="dir">
-        ${modoPronta ? `<div class="avpr"><div class="l1"><span>Usando uma prévia já enviada</span><button class="troca" id="tirapronta">Cancelar</button></div><div class="l2">${prontaSrc ? 'Só o vídeo será gerado (sem gastar prévia).' : 'Escolha a prévia na coluna ao lado.'}</div><div class="aj"><label for="quem">Quem sobe a escada?${n >= 2 ? ' (obrigatório)' : ' (opcional)'}</label><input id="quem" maxlength="200" placeholder="Ex.: a senhora de blusa vermelha, à esquerda" value="${esc(quemSobe)}"></div></div>` : ''}
+        ${modoPronta ? `<div class="avpr"><div class="l1"><span>Usando uma prévia já enviada</span><button class="troca" id="tirapronta">Cancelar</button></div><div class="l2">${prontaSrc ? 'Só o vídeo será gerado (sem gastar prévia).' : 'Escolha a prévia na coluna ao lado.'}</div></div>` : ''}
         <div class="passo"><b>1</b><span>Quantas pessoas?</span>${n === 2 || n === 3 ? `<button class="troca" id="juntos" aria-pressed="${emJuntos()}" title="As ${n === 3 ? 'três' : 'duas'} pessoas aparecem na mesma foto: cole uma foto só e diga quem faleceu" style="${emJuntos() ? 'background:#4c8dff;color:#fff;border-color:#4c8dff' : ''}">${IC.pessoas} Mesma foto</button>` : ''}</div>
         <div class="seg">${(aniv ? [1] : [1, 2, 3, 4]).map(k => `<button data-n="${k}" class="${k === n ? 'on' : ''}">${k} ${k === 1 ? 'pessoa' : 'pessoas'}</button>`).join('')}${aniv ? '' : `<button data-n="5" class="mais ${n > 4 ? 'on' : ''}" title="Mais pessoas (5 a 8)" aria-label="Mais pessoas, de 5 a 8" style="flex:0 0 44px">+</button>`}</div>
         ${n > 4 ? `<div class="seg">${[5, 6, 7, 8].map(k => `<button data-n="${k}" class="${k === n ? 'on' : ''}">${k} pessoas</button>`).join('')}</div>` : ''}
@@ -1125,7 +1149,8 @@ const chrome = (() => {
     c.querySelectorAll('[data-op]').forEach(b => b.onclick = () => {
       const i = +b.closest('.pes').querySelector('[data-slot]').dataset.slot, p = pessoas[i], k = b.dataset.op;
       p[k] = !p[k];
-      if (p[k] && (k === 'animal' || k === 'bebe')) { p.semcamisa = p.calca = p.vestido = false; p[k === 'animal' ? 'bebe' : 'animal'] = false; }
+      if (p[k] && (k === 'animal' || k === 'bebe')) { p.semcamisa = p.calca = p.vestido = p.crianca = false; p[k === 'animal' ? 'bebe' : 'animal'] = false; }
+      if (p[k] && k === 'crianca') p.animal = p.bebe = false;
       if (p[k] && k === 'calca') p.vestido = false;
       if (p[k] && k === 'vestido') p.calca = false;
       desenhar();
@@ -1145,9 +1170,8 @@ const chrome = (() => {
     $('#gdireto').onclick = () => enviar(true, autoEnvio);
     if ($('#gprevia')) $('#gprevia').onclick = () => enviar(false, autoEnvio);
     $('#corpo').querySelectorAll('[data-pronta]').forEach(e => e.onclick = () => { const f = ((lembrar() || {}).nossas || []).find(x => x.id === +e.dataset.pronta); if (!f) return; modoPronta = true; prontaSrc = f.src; msg = ''; desenhar(); });
-    if ($('#tirapronta')) $('#tirapronta').onclick = () => { modoPronta = false; prontaSrc = ''; quemSobe = ''; desenhar(); };
+    if ($('#tirapronta')) $('#tirapronta').onclick = () => { modoPronta = false; prontaSrc = ''; desenhar(); };
     if ($('#meuprompt')) $('#meuprompt').onclick = abrirMeuPrompt;
-    if ($('#quem')) $('#quem').oninput = e => { quemSobe = e.target.value; const g = $('#gdireto'); if (g) g.disabled = !(okPronta() && casoDe()); };
     $('#chaveauto').onchange = e => { autoEnvio = e.target.checked; try { chrome.storage.local.set({ autoEnvio }); } catch (x) {} desenhar(); };
   }
 
@@ -1280,6 +1304,12 @@ const chrome = (() => {
     if (r && r.ok) { avalLocal[vid] = resultado; avalAberto = ''; } else { msg = '!Não consegui marcar agora. ' + ((r && r.erro) || 'Tente de novo.'); }
     pintarAval(vid, servidor);
   }
+  // o aplicativo antigo ignora a marcação "Criança" sem avisar: confere a versão antes (devolve o aviso, ou '')
+  async function avisoCrianca(ped) {
+    if (!((ped.opcoes || {}).crianca || []).length) return '';
+    let v = 0; try { const pg = await chrome.runtime.sendMessage({ tipo: 'ping' }); const m = /^(\d+)\.(\d+)/.exec((pg && pg.dados && pg.dados.versao) || ''); if (m) v = +m[1] * 1000 + +m[2]; } catch (e) {}
+    return v < 9010 ? 'O aplicativo do Estúdio deste computador ainda não conhece o botão Criança. Feche e abra o aplicativo (ele se atualiza sozinho), ou desmarque Criança.' : '';
+  }
   async function enviar(direto, auto) {
     if (chatPainel.id && chatAtual().id && chatAtual().id !== chatPainel.id) { msg = '!Você mudou de contato na Leona. Para não misturar as fotos, abra o Estúdio de novo no contato certo (#' + chatPainel.id + ').'; return desenhar(); }
     $('#corpo').querySelectorAll('.bgrid .go').forEach(b => { b.disabled = true; });
@@ -1290,6 +1320,7 @@ const chrome = (() => {
       let v = 0; try { const pg = await chrome.runtime.sendMessage({ tipo: 'ping' }); const m = /^(\d+)\.(\d+)/.exec((pg && pg.dados && pg.dados.versao) || ''); if (m) v = +m[1] * 1000 + +m[2]; } catch (e) {}
       if (v < 8071) { msg = '!O aplicativo do Estúdio deste computador ainda é antigo para usar a prévia já enviada. Feche e abra o aplicativo (ele se atualiza sozinho) e tente de novo.'; return desenhar(); }
     }
+    { const av = await avisoCrianca(ped); if (av) { msg = '!' + av; return desenhar(); } }
     try { r = await chrome.runtime.sendMessage({ tipo: 'gerar', pedido: ped }); } catch (e) { r = { erro: String(e) }; }
     if (r && r.ok) { try { chrome.storage.local.set({ ['ped_' + r.id]: ped }); if (auto) chrome.storage.local.set({ ['auto_' + r.id]: direto ? 'video' : 'previa' }); } catch (e) {} limparRascunho(chatPainel.id || chatAtual().id); }
     if (!r || !r.ok) {
@@ -1298,7 +1329,7 @@ const chrome = (() => {
     }
     msg = '';
     const ch = chatPainel.id || chatAtual().id;
-    guardar(ch, r.id);
+    await guardar(ch, r.id);
     acompanhar(r.id, ch);
   }
 
@@ -1306,13 +1337,13 @@ const chrome = (() => {
   let rascunho = null, tRasc = null;
   const chaveRasc = ch => 'rasc_' + ch;
   async function lerRascunho(ch) { try { return (await chrome.storage.local.get(chaveRasc(ch)))[chaveRasc(ch)] || null; } catch (e) { return null; } }
-  function limparRascunho(ch) { modoPronta = false; prontaSrc = ''; quemSobe = ''; marcas.clear(); marcasChat = ''; clearTimeout(tRasc); rascunho = null; try { chrome.storage.local.remove(chaveRasc(ch)); } catch (e) {} }
+  function limparRascunho(ch) { modoPronta = false; prontaSrc = ''; marcas.clear(); marcasChat = ''; clearTimeout(tRasc); rascunho = null; try { chrome.storage.local.remove(chaveRasc(ch)); } catch (e) {} }
   function agendarRascunho() {
     if (!$('#veu').classList.contains('on') || !$('#gdireto')) return;   // só quando o menu está na tela (não no andamento)
     const ch = chatPainel.id || chatAtual().id; if (!ch) return;
     clearTimeout(tRasc);
     tRasc = setTimeout(() => {
-      const algo = pessoas.some(p => p.foto || p.editada || p.animal || p.bebe || p.semcamisa || p.calca || p.vestido || p.papel) || ajuste.trim() || n > 1;
+      const algo = pessoas.some(p => p.foto || p.editada || p.animal || p.bebe || p.crianca || p.semcamisa || p.calca || p.vestido || p.papel) || ajuste.trim() || n > 1;
       if (!algo) { try { chrome.storage.local.remove(chaveRasc(ch)); } catch (e) {} return; }
       const dado = { t: Date.now(), n, juntos, jq, ajuste, mais, pessoas: pessoas.map(p => { const f = p.foto && fotosSel.find(x => x.id === p.foto); return { ...p, foto: null, busy: false, fotoSrc: f ? f.src : null }; }) };
       try { chrome.storage.local.set({ [chaveRasc(ch)]: dado }); } catch (e) {}
@@ -1672,8 +1703,111 @@ const chrome = (() => {
     if (!l) return c;
     return l.split('').map((x, i) => 'Pessoa ' + (i + 1) + (x === 'f' ? ' faleceu' : ' viva')).join(' · ') + (juntos ? ' · mesma foto' : '');
   };
+  // ---------- "Mais opções": mudar as marcações e gerar de novo com as MESMAS fotos (e recortes) ----------
+  const cheio = d => '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' + d + '</svg>';
+  const IM = {   // os mesmos desenhos dos botões do Estúdio
+    fal: cheio('<path d="M12 2.5l2.9 6.2 6.7.8-5 4.6 1.4 6.7L12 17.4l-6 3.4 1.4-6.7-5-4.6 6.7-.8z"/>'),
+    viva: cheio('<path d="M12 21l-1.5-1.3C5.4 15.2 2 12.1 2 8.3 2 5.2 4.4 3 7.3 3c1.7 0 3.3.8 4.7 2.2C13.4 3.8 15 3 16.7 3 19.6 3 22 5.2 22 8.3c0 3.8-3.4 6.9-8.5 11.4z"/>'),
+    animal: cheio('<ellipse cx="5.5" cy="11" rx="2" ry="2.6" transform="rotate(-20 5.5 11)"/><ellipse cx="9.5" cy="5.8" rx="2.1" ry="2.8"/><ellipse cx="14.5" cy="5.8" rx="2.1" ry="2.8"/><ellipse cx="18.5" cy="11" rx="2" ry="2.6" transform="rotate(20 18.5 11)"/><path d="M12 11.5c-3.2 0-6 3.4-6 6.1 0 2 1.6 2.9 3.3 2.9 1 0 1.8-.5 2.7-.5s1.7.5 2.7.5c1.7 0 3.3-.9 3.3-2.9 0-2.7-2.8-6.1-6-6.1z"/>'),
+    bebe: cheio('<path fill-rule="evenodd" d="M12 5.5a8 8 0 100 16 8 8 0 000-16zM9 12.3a1.1 1.1 0 100 2.2 1.1 1.1 0 000-2.2zM15 12.3a1.1 1.1 0 100 2.2 1.1 1.1 0 000-2.2zM9.2 16.8c.7 1 1.7 1.5 2.8 1.5s2.1-.5 2.8-1.5c-.9.5-1.8.7-2.8.7s-1.9-.2-2.8-.7z"/><path d="M12 5.6c-.9-.2-1.5-.9-1.5-1.9 0-1 .8-1.7 1.8-1.7.1.7.9 1 .9 1.8 0 .8-.5 1.5-1.2 1.8z"/>'),
+    camisa: cheio('<path d="M8 3L3 6l2 4 3-1v12h8V9l3 1 2-4-5-3a4 4 0 01-8 0z"/>'),
+    calca: cheio('<path d="M7 3h10l1 18h-4.5L12 10.5 10.5 21H6z"/>'),
+    vestido: cheio('<path d="M9 3h6l1 5-2 3 4 10H6l4-10-2-3z"/>'),
+  };
+  const letrasDe = c => { const m = /^\d-([fv]+)$/.exec(c || ''); return m ? m[1].split('') : (({ '1p': ['f'], '2f': ['f', 'f'], '1f2v': ['f', 'v'], '1v2f': ['v', 'f'] })[c] || ['f']); };
+  const casoDas = L => !L.includes('f') ? '' : L.length === 1 ? '1p' : L.length === 2 ? (L[0] === 'f' ? (L[1] === 'f' ? '2f' : '1f2v') : '1v2f') : L.length + '-' + L.join('');
+  const fecharMais = () => { const j = $('#mopd'); if (j) j.remove(); };
+  async function maisOpcoes(base, casoTela, thumbs, mandar) {   // base: o pedido guardado; casoTela: marcação escolhida na tela; mandar(ped, direto, fala): envia
+    if ($('#mopd')) return;
+    const aniversario = /^aniv-/.test(base.caso || ''), juntosPed = !!base.juntos, o = base.opcoes || {};
+    const letras = letrasDe(casoTela || base.caso);
+    let jqm = casoTela || base.caso;
+    const tem = (k, i) => (o[k] || []).includes(i + 1);
+    const lista = (base.pessoas || []).map((p, i) => ({ p, flip: false, viva: !juntosPed && letras[i] === 'v',
+      thumb: p.imagem ? 'data:' + p.imagem.tipo + ';base64,' + p.imagem.b64 : (thumbs[i] || (p.fotos || [])[0] || ''),
+      crianca: tem('crianca', i), semcamisa: tem('semcamisa', i), calca: tem('calca', i), vestido: tem('vestido', i), animal: tem('animal', i), bebe: tem('bebe', i),
+      papel: o.chegada && (o.chegada.espera || []).includes(i + 1) ? 'espera' : o.chegada && (o.chegada.chega || []).includes(i + 1) ? 'chega' : '' }));
+    const n = lista.length, cols = n > 4 ? Math.ceil(n / 2) : n;
+    const caso = () => aniversario ? base.caso : juntosPed ? jqm : casoDas(lista.map(q => q.viva ? 'v' : 'f'));
+    const d = document.createElement('div'); d.className = 'mpd'; d.id = 'mopd';
+    ($('#veu') || document.body).appendChild(d);
+    let aviso = '', ocupadoMais = false;
+    const BO = (a, i, txt, on, extra, titulo) => `<button class="o${on ? ' on' : ''}${extra || ''}" data-m="${a}" data-i="${i}" title="${titulo}" aria-label="${titulo}" aria-pressed="${!!on}">${txt}</button>`;
+    const cartao = (q, i) => {
+      const some = q.animal || q.bebe ? ' oc' : '', todasF = lista.every(x => !x.viva);
+      return `<div class="mopp">${n > 1 ? `<small>Pessoa ${i + 1}</small>` : ''}<div class="mopf"><img src="${esc(q.thumb)}" class="${q.flip ? 'esp' : ''}" alt="Foto ${i + 1}"></div>
+        <div class="mopl ${n > 1 ? 'c3' : 'c1'}">${n > 1 ? `<button class="o" data-m="mv" data-i="${i}" data-d="-1" title="Mover para a esquerda" aria-label="Mover para a esquerda" ${i === 0 ? 'disabled' : ''}>◀</button>` : ''}${BO('flip', i, IC.espelho, q.flip, '', 'Espelhar a foto')}${n > 1 ? `<button class="o" data-m="mv" data-i="${i}" data-d="1" title="Mover para a direita" aria-label="Mover para a direita" ${i === n - 1 ? 'disabled' : ''}>▶</button>` : ''}</div>
+        ${juntosPed ? '' : `${n > 1 ? `<div class="mopl c1">${BO('f', i, IM.fal + 'Faleceu', !q.viva, '', 'Faleceu')}${BO('v', i, IM.viva + 'Viva', q.viva, '', 'Está viva')}</div>` : ''}
+        ${n > 1 && n <= 4 ? `<div class="mopl c2${todasF ? '' : ' some'}">${BO('espera', i, 'No céu', q.papel === 'espera', '', 'Já está no céu: espera no meio da escada')}${BO('chega', i, 'Chegou', q.papel === 'chega', '', 'Acabou de falecer: sobe até quem espera')}</div>` : ''}
+        <div class="mopl ${aniversario ? 'c1' : 'c2'}">${BO('crianca', i, 'Criança', q.crianca, '', 'É uma criança')}${aniversario ? '' : BO('bebe', i, 'Bebê', q.bebe, '', 'É um bebê (de colo)')}</div>
+        <div class="mopr${n > 4 ? ' junto' : ''}"><div class="mopl ${aniversario ? 'c1' : 'c2'}">${aniversario ? '' : BO('animal', i, IM.animal, q.animal, '', 'Animal')}${BO('semcamisa', i, IM.camisa, q.semcamisa, some, 'Sem camisa')}</div>
+        <div class="mopl c2">${BO('calca', i, IM.calca, q.calca, some, 'Calça')}${BO('vestido', i, IM.vestido, q.vestido, some, 'Vestido')}</div></div>`}</div>`;
+    };
+    const pinta = () => {
+      const c = caso(), rol = (d.querySelector('.mopg') || {}).scrollTop || 0;
+      d.innerHTML = `<div class="mop" style="width:${juntosPed || n === 1 ? 340 : Math.max(380, cols * 128 + 30)}px"><h3>Mais opções<button class="x" data-m="fechar" title="Fechar" aria-label="Fechar">${IC.fechar}</button></h3>
+        <div class="mopg" style="grid-template-columns:repeat(${juntosPed ? 1 : cols},minmax(0,${juntosPed || n === 1 ? '1fr' : '150px'}))">${lista.map(cartao).join('')}</div>
+        ${juntosPed ? `<div class="mopj">${lista.length && letrasDe(jqm).length === 3
+          ? ['Da esquerda', 'Do meio', 'Da direita'].map((nm, k) => `<div class="j3l"><span>${nm}</span>${BO('j3f', k, IM.fal + 'Faleceu', letrasDe(jqm)[k] === 'f', '', nm + ': faleceu')}${BO('j3v', k, IM.viva + 'Viva', letrasDe(jqm)[k] === 'v', '', nm + ': está viva')}</div>`).join('')
+          : `<div class="mopl c1">${['1f2v', '1v2f', '2f'].map((q, k) => BO('jq', k, NOMEJQ[q], jqm === q, '', NOMEJQ[q])).join('')}</div>`}</div>` : ''}
+        <div class="lin2"><button class="gr" data-m="direto" ${c && !ocupadoMais ? '' : 'disabled'}>${autoEnvio ? 'Gerar homenagem e enviar' : 'Gerar homenagem'}</button><button class="gr sec" data-m="previa" ${c && !ocupadoMais ? '' : 'disabled'}>${autoEnvio ? 'Só a prévia e enviar' : 'Só a prévia'}</button></div>
+        <div class="stt ${aviso || !c ? 'bad' : ''}">${esc(aviso || (c ? '' : 'Marque pelo menos uma pessoa que faleceu.'))}</div></div>`;
+      d.querySelector('.mopg').scrollTop = rol;
+    };
+    const fala = (t, ruim) => { const m = d.querySelector('.stt'); if (m) { m.textContent = t; m.className = 'stt' + (ruim ? ' bad' : ''); } };
+    const montar = async direto => {
+      const todasF = lista.every(q => !q.viva), marcados = lista.map(q => q.papel);
+      let chegada = null;
+      if (!juntosPed && todasF && n > 1 && n <= 4 && marcados.some(Boolean)) {
+        if (marcados.some(x => !x) || !marcados.includes('espera') || !marcados.includes('chega')) return fala('Marque cada pessoa: "No céu" ou "Chegou". Tem que ter pelo menos uma de cada.', true);
+        chegada = { espera: marcados.map((x, i) => x === 'espera' ? i + 1 : 0).filter(Boolean), chega: marcados.map((x, i) => x === 'chega' ? i + 1 : 0).filter(Boolean) };
+      }
+      ocupadoMais = true; d.querySelectorAll('.lin2 .gr').forEach(b => { b.disabled = true; }); fala('Enviando ao Estúdio…');
+      const ped = JSON.parse(JSON.stringify(base)); ped.opcoes = ped.opcoes || {}; ped.caso = caso(); ped.opcoes.direto = direto;
+      try {
+        ped.pessoas = [];
+        for (let i = 0; i < n; i++) {
+          const q = lista[i], p = { ...q.p, n: i + 1, vivo: q.viva };
+          if (q.flip) {   // espelha a foto que está no quadrado (a mesma que foi usada)
+            const img = /^https:/.test(q.thumb) ? await carregarOriginal(q.thumb)   // foto ainda no endereço do chat: baixa pelo segundo plano (senão o navegador não deixa girar)
+              : await new Promise((ok, no) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => no(new Error('Não consegui espelhar a foto ' + (i + 1) + '.')); im.src = q.thumb; });
+            const blob = await new Promise((ok, no) => renderBase(img, { rot: 0, flip: true }, 1800).toBlob(b => b ? ok(b) : no(new Error('Não consegui espelhar a foto ' + (i + 1) + '.')), 'image/jpeg', 0.92));
+            p.imagem = { tipo: 'image/jpeg', b64: await blobParaB64(blob) };
+          }
+          ped.pessoas.push(p);
+        }
+      } catch (e) { ocupadoMais = false; pinta(); return fala((e && e.message) || String(e), true); }
+      if (!juntosPed) {
+        const idx = (k, vale) => lista.map((q, i) => q[k] && (!vale || (!q.animal && !q.bebe)) ? i + 1 : 0).filter(Boolean);
+        Object.assign(ped.opcoes, { semcamisa: idx('semcamisa', true), calca: idx('calca', true), vestido: idx('vestido', true), animal: idx('animal'), bebe: idx('bebe'), crianca: idx('crianca', true), chegada });
+      }
+      const erro = await mandar(ped, direto);
+      if (erro) { ocupadoMais = false; pinta(); fala(erro, true); }
+    };
+    d.onclick = ev => {
+      if (ev.target === d) return ocupadoMais ? undefined : fecharMais();
+      const b = ev.target.closest && ev.target.closest('[data-m]'); if (!b || b.disabled || ocupadoMais) return;
+      const a = b.dataset.m, i = +b.dataset.i, q = lista[i];
+      if (a === 'fechar') return fecharMais();
+      if (a === 'direto' || a === 'previa') return montar(a === 'direto');
+      aviso = '';
+      if (a === 'mv') { const j = i + +b.dataset.d; if (!lista[j]) return; [lista[i], lista[j]] = [lista[j], lista[i]]; }
+      else if (a === 'flip') q.flip = !q.flip;
+      else if (a === 'f' || a === 'v') { q.viva = a === 'v'; if (a === 'v') lista.forEach(x => { x.papel = ''; }); }
+      else if (a === 'espera' || a === 'chega') q.papel = q.papel === a ? '' : a;
+      else if (a === 'animal' || a === 'bebe') { q[a] = !q[a]; if (q[a]) { q.semcamisa = q.calca = q.vestido = q.crianca = false; q[a === 'animal' ? 'bebe' : 'animal'] = false; } }
+      else if (a === 'crianca') { q.crianca = !q.crianca; if (q.crianca) q.animal = q.bebe = false; }
+      else if (a === 'semcamisa') q.semcamisa = !q.semcamisa;
+      else if (a === 'calca' || a === 'vestido') { q[a] = !q[a]; if (q[a]) q[a === 'calca' ? 'vestido' : 'calca'] = false; }
+      else if (a === 'jq') jqm = ['1f2v', '1v2f', '2f'][i];
+      else if (a === 'j3f' || a === 'j3v') { const l = jqm.slice(2).split(''); l[i] = a === 'j3f' ? 'f' : 'v'; if (!l.includes('f')) aviso = 'Pelo menos uma pessoa precisa ter falecido.'; else jqm = '3-' + l.join(''); }
+      pinta();
+    };
+    pinta();
+  }
   function acompanhar(id, chatId) {
     clearInterval(relogio);
+    fecharMais();
     previas[id] = previas[id] || {};
     const nomeChat = chatAtual().nome;
     $('#paises').hidden = true;   // o bolo só vale ao montar um pedido novo
@@ -1682,7 +1816,7 @@ const chrome = (() => {
       <div class="cols">
         <section class="col"><div class="ct"><span>1 · Original e refazer</span></div>
           <div class="cartao" id="c-orig"><div class="espera">Abrindo as fotos…</div></div>
-          <div id="jqs" class="jqs-l"></div>
+          <div class="r3"><div id="jqs" class="jqs-l"></div><button class="gr sec" id="r-mais" title="Mudar as marcações (Faleceu, Viva, Bebê…) e gerar de novo com as mesmas fotos">Mais opções</button></div>
           <div class="aj"><label for="r-aj">Corrigir o prompt</label><input id="r-aj" maxlength="300" placeholder="Ex.: a pessoa do meio não deve subir a escada"></div>
           <div class="lin2 cor"><button class="gr" id="r-corrige" title="Gera outro vídeo da mesma prévia com a sua correção no prompt">Gerar vídeo corrigido</button><button class="gr sec" id="r-cola" title="Cole um prompt feito por você (ex.: no ChatGPT): vai exato ao Grok, sem nada acrescentado">Colar meu prompt</button></div>
           <div class="lin2"><button class="gr" id="r-direto">Gerar homenagem</button><button class="gr sec" id="r-previa">Só a prévia</button></div>
@@ -1822,6 +1956,7 @@ const chrome = (() => {
         if ($('#d-nome').textContent !== nome) $('#d-nome').textContent = nome;
         const sub = [legenda(d.caso, d.juntos), d.previa && d.previa.criado ? d.previa.criado.slice(0, 11) : ''].filter(Boolean).join(' · ') || ('Chat #' + chatId);
         if ($('#d-sub').textContent !== sub) $('#d-sub').textContent = sub;
+        $('#r-mais').hidden = !!(d.previa && d.previa.id === 'pronta');   // prévia já enviada: não há fotos para refazer
         // 1 · original
         const fotos = []; for (let k = 0; k < (d.fotos || 0); k++) fotos.push(previas[id]['orig' + k]);
         const sigO = fotos.join('|');
@@ -1910,12 +2045,36 @@ const chrome = (() => {
       if (!g) { m.className = 'stt bad'; m.textContent = 'Este pedido é antigo: use "Nova homenagem neste chat".'; return; }
       const ped = JSON.parse(JSON.stringify(g)); ped.opcoes = ped.opcoes || {}; ped.opcoes.direto = direto; if (limpar) ped.opcoes.ajuste = '';
       ped.refazer_de = id;   // é a MESMA homenagem (mesmo cliente): o Estúdio mantém o nome e não conta como pedido novo
-      if (jqRef && (ped.juntos || (/^3-/.test(jqRef) && /^3-/.test(ped.caso || '')))) ped.caso = jqRef;
+      if (jqRef && (ped.juntos || (/^3-/.test(jqRef) && /^3-/.test(ped.caso || '')))) {
+        ped.caso = jqRef;
+        if (!ped.juntos && !ped.opcoes.pronta && /^3-/.test(jqRef) && (ped.pessoas || []).length === 3) ped.pessoas.forEach((q, i) => { q.vivo = jqRef[2 + i] === 'v'; });   // cada pessoa leva a marcação nova
+      }
       m.textContent = 'Enviando ao Estúdio…';
+      const erro = await mandarDeNovo(ped, direto);
+      if (erro) { m.className = 'stt bad'; m.textContent = erro; }
+    };
+    // envia o pedido refeito e passa a acompanhá-lo; devolve o texto do erro (ou '' quando deu certo)
+    const mandarDeNovo = async (ped, direto) => {
+      const av = await avisoCrianca(ped); if (av) return av;
       let r; try { r = await chrome.runtime.sendMessage({ tipo: 'gerar', pedido: ped }); } catch (e) { r = { erro: String(e) }; }
-      if (!r || !r.ok) { m.className = 'stt bad'; m.textContent = (r && r.erro) || 'Não achei o Estúdio.'; return; }
+      if (!r || !r.ok) return (r && r.erro) || 'Não achei o Estúdio.';
       try { chrome.storage.local.set({ ['ped_' + r.id]: ped }); if (autoEnvio) chrome.storage.local.set({ ['auto_' + r.id]: direto ? 'video' : 'previa' }); } catch (e) {}   // com a chave do envio automático ligada, refazer também envia sozinho
-      guardar(chatId, r.id); acompanhar(r.id, chatId);
+      await guardar(chatId, r.id); acompanhar(r.id, chatId);
+      return '';
+    };
+    $('#r-mais').onclick = async () => {
+      const m = $('#r-msg'); m.className = 'stt'; m.textContent = '';
+      if (chatAtual().id !== chatId) { m.className = 'stt bad'; m.textContent = 'Abra o chat #' + chatId + ' para refazer.'; return; }
+      let g; try { const k = 'ped_' + id; g = (await chrome.storage.local.get(k))[k]; } catch (e) {}
+      if (!g || !(g.pessoas || []).length) { m.className = 'stt bad'; m.textContent = 'Este pedido é antigo: use "Nova homenagem neste chat".'; return; }
+      const casoTela = jqRef && (g.juntos || (/^3-/.test(jqRef) && /^3-/.test(g.caso || ''))) ? jqRef : '';
+      const thumbs = (g.pessoas || []).map((q, k) => previas[id]['orig' + k] || '');
+      await maisOpcoes(g, casoTela, thumbs, async (ped, direto) => {
+        if (chatAtual().id !== chatId) return 'Abra o chat #' + chatId + ' para refazer.';
+        ped.refazer_de = id;
+        diario('mais_opcoes', { caso: ped.caso, direto });
+        return mandarDeNovo(ped, direto);
+      });
     };
     // "Corrigir o prompt": o editor escreve o que deu errado e o Estúdio gera OUTRO vídeo da mesma prévia com essa correção no começo do prompt.
     // Quando esse vídeo for enviado ao cliente, o Estúdio registra a correção (Administração > Prompts dos editores) para melhorar o prompt padrão.
@@ -1930,8 +2089,12 @@ const chrome = (() => {
       const aj = $('#r-aj'); if (aj && txt) aj.value = '';
       acompanhar(id, chatId); return true;
     };
+    // a prévia foi feita com uma marcação; se o editor mudou quem faleceu aqui, só um vídeo novo ignoraria a mudança
+    const mudouMarcacao = pv => !!(pv && pv.id !== 'pronta' && jqRef && dados && dados.caso && jqRef !== dados.caso);
+    const MSG_MARCACAO = 'Você mudou quem faleceu. A prévia atual é da marcação antiga: use Refazer só a prévia.';
     const corrigir = async () => {
       const m = $('#r-msg'); m.className = 'stt';
+      if (mudouMarcacao(dados && dados.previa)) { m.className = 'stt bad'; m.textContent = MSG_MARCACAO; return; }
       const txt = (($('#r-aj') || {}).value || '').trim();
       if (!txt) { m.className = 'stt bad'; m.textContent = 'Escreva a correção do prompt: o que deu errado no vídeo.'; return; }
       const pv = dados && dados.previa;
@@ -1947,7 +2110,7 @@ const chrome = (() => {
         corrPendente = txt; diario('corrige_guardada', { n: txt.length, via: 'fila' });   // sem vídeo automático neste pedido: guarda e pede o vídeo corrigido quando a prévia ficar pronta
         m.className = 'stt ok'; m.textContent = 'Correção guardada: quando a prévia ficar pronta, gero o vídeo corrigido.'; return;
       }
-      if (pv.id === 'pronta') {   // prévia já enviada: não há prévia no Estúdio; manda o MESMO pedido de novo (mesma imagem, mesmo "quem sobe") com a correção
+      if (pv.id === 'pronta') {   // prévia já enviada: não há prévia no Estúdio; manda o MESMO pedido de novo (mesma imagem) com a correção
         if (chatAtual().id !== chatId) { m.className = 'stt bad'; m.textContent = 'Abra o chat #' + chatId + ' para corrigir.'; return; }
         let g; try { const k = 'ped_' + id; g = (await chrome.storage.local.get(k))[k]; } catch (e) {}
         if (!g) { m.className = 'stt bad'; m.textContent = 'Este pedido é antigo: use "Nova homenagem neste chat".'; return; }
@@ -1958,7 +2121,7 @@ const chrome = (() => {
         diario('corrige', { ok: !!(rp && rp.ok), pronta: 1, n: txt.length, er: (rp && rp.erro) || '' });
         if (!rp || !rp.ok) { m.className = 'stt bad'; m.textContent = (rp && rp.erro) || 'Não achei o Estúdio.'; return; }
         try { chrome.storage.local.set({ ['ped_' + rp.id]: ped }); } catch (e) {}   // o vídeo corrigido nunca é enviado sozinho: o editor confere e envia
-        $('#r-aj').value = ''; guardar(chatId, rp.id); acompanhar(rp.id, chatId);
+        $('#r-aj').value = ''; await guardar(chatId, rp.id); acompanhar(rp.id, chatId);
         return;
       }
       await pedirCorrecao(pv.id, txt, bt);
@@ -1969,7 +2132,7 @@ const chrome = (() => {
       if ($('#cpd')) return;
       const d = document.createElement('div'); d.className = 'mpd'; d.id = 'cpd';
       d.innerHTML = `<div class="mpc"><h3>Colar meu prompt</h3>
-        <p>Cole o prompt inteiro. Ele vai exatamente como está para o Grok, só neste vídeo (o padrão não muda). Se o vídeo ficar bom, marque Deu certo: o prompt e o seu resumo ficam guardados.</p>
+        <p>Cole o prompt inteiro. Ele vai exatamente como está para o Grok, só neste vídeo (o padrão não muda).</p>
         <textarea id="cptxt" spellcheck="false" placeholder="Cole aqui o prompt do vídeo"></textarea>
         <input class="avn" id="cpres" maxlength="300" placeholder="Resumo (opcional): o que este prompt faz de diferente. Ex.: Jesus desce mais cedo">
         <div class="lin"><button class="go" id="cpgera">Gerar vídeo com este prompt</button><button class="go sec" id="cpfecha">Cancelar</button><span class="qtd" id="cpqtd"></span></div>
@@ -1994,7 +2157,7 @@ const chrome = (() => {
           if (!g) { bt.disabled = false; return fala('Este pedido é antigo: use "Nova homenagem neste chat".', true); }
           const ped = JSON.parse(JSON.stringify(g)); ped.opcoes = ped.opcoes || {}; ped.opcoes.direto = true; ped.opcoes.colado = txt; ped.opcoes.resumo = resumo; ped.refazer_de = id;
           try { r = await chrome.runtime.sendMessage({ tipo: 'gerar', pedido: ped }); } catch (e) { r = { erro: String(e) }; }
-          if (r && r.ok) { try { chrome.storage.local.set({ ['ped_' + r.id]: ped }); } catch (e) {} guardar(chatId, r.id); }
+          if (r && r.ok) { try { chrome.storage.local.set({ ['ped_' + r.id]: ped }); } catch (e) {} await guardar(chatId, r.id); }
         } else {
           try { r = await chrome.runtime.sendMessage({ tipo: 'video_novo', previa_id: pv.id, colado: txt, resumo }); } catch (e) { r = { erro: String(e) }; }
         }
@@ -2010,7 +2173,8 @@ const chrome = (() => {
       const m = $('#r-msg'); m.className = 'stt';
       const pv = dados && dados.previa;
       if (!pv || !pv.id) { m.className = 'stt bad'; m.textContent = 'Espere o pedido aparecer e tente de novo.'; return; }
-      if (pv.id === 'pronta') { diario('refaz_video', { pronta: 1 }); return refazer(true, true); }   // prévia já enviada: mesmo pedido de novo (mesma imagem e mesmo "quem sobe"), só o vídeo
+      if (mudouMarcacao(pv)) { m.className = 'stt bad'; m.textContent = MSG_MARCACAO; return; }
+      if (pv.id === 'pronta') { diario('refaz_video', { pronta: 1 }); return refazer(true, true); }   // prévia já enviada: mesmo pedido de novo (mesma imagem), só o vídeo
       if (pv.estado !== 'pronto') { m.className = 'stt bad'; m.textContent = pv.estado === 'erro' || pv.erro ? 'A prévia deu erro: use Refazer só a prévia.' : 'Espere a prévia ficar pronta para refazer o vídeo.'; return; }
       await pedirCorrecao(pv.id, '', $('#r2-video'));
     };
@@ -2024,6 +2188,7 @@ const chrome = (() => {
 
   async function abrir(novo) {
     clearInterval(relogio);
+    fecharMais();   // a janelinha "Mais opções" de um contato nunca fica aberta em cima de outro
     for (let i = 0; i < 14; i++) { lembrar(); if (Date.now() - chatDesde >= ESTAVEL_MS) break; await esperar(200); }   // acabou de trocar de contato: espera a Leona terminar de redesenhar
     chatPainel = chatAtual();
     fotosSel = lerFotos();
