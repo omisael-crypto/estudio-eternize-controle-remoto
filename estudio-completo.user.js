@@ -2,7 +2,7 @@
 // @name         Estúdio Eternize (completo)
 // @namespace    eternize.estudio.completo
 // @icon         https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/icone.png
-// @version      0.17.39
+// @version      0.17.40
 // @description  Mostra as fotos que o cliente enviou no chat da Leona, separa por pessoa e manda para o Estúdio Eternize.
 // @updateURL    https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
 // @downloadURL  https://raw.githubusercontent.com/omisael-crypto/estudio-eternize-controle-remoto/main/estudio-completo.user.js
@@ -22,10 +22,10 @@
 // @connect      raw.githubusercontent.com
 // ==/UserScript==
 
-// Estúdio Eternize — controle remoto, versão 0.17.39 (gerado por leona/gerar.py)
+// Estúdio Eternize — controle remoto, versão 0.17.40 (gerado por leona/gerar.py)
 (function () {
 'use strict';
-const VERSAO_SCRIPT = '0.17.39';
+const VERSAO_SCRIPT = '0.17.40';
 // Faz o código da extensão (content.js) rodar no Tampermonkey: cria um "chrome" de mentira com as mesmas funções
 // (guardar dados, falar com o Estúdio deste computador). O código do menu é o MESMO da extensão.
 const chrome = (() => {
@@ -2049,6 +2049,7 @@ const chrome = (() => {
         ped.caso = jqRef;
         if (!ped.juntos && !ped.opcoes.pronta && /^3-/.test(jqRef) && (ped.pessoas || []).length === 3) ped.pessoas.forEach((q, i) => { q.vivo = jqRef[2 + i] === 'v'; });   // cada pessoa leva a marcação nova
       }
+      if (!ped.juntos && (ped.pessoas || []).some(q => q.vivo) && ped.opcoes.chegada) ped.opcoes.chegada = null;   // "No céu / Chegou" só vale com todas falecidas: se agora há uma viva, tira
       m.textContent = 'Enviando ao Estúdio…';
       const erro = await mandarDeNovo(ped, direto);
       if (erro) { m.className = 'stt bad'; m.textContent = erro; }
